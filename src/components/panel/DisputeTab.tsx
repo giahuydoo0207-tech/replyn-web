@@ -165,7 +165,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
             step={50}
             value={gross}
             onChange={(e) => setGross(Number(e.target.value))}
-            className="mt-2 w-full accent-[#E9E4CC]"
+            className="mt-2 w-full accent-[#e9edef]"
           />
 
           <PayoutRows ws={ws} ms={ms} gross={gross} tier={ws.feeTier} />

@@ -44,7 +44,7 @@ export function OverviewTab({ ws }: { ws: Workspace }) {
             const u = state.users[id];
             return (
               <li key={id} className="flex items-center gap-2.5">
-                <Avatar initials={initials(u.name)} bg="#23261e" fg={u.color} size={30} />
+                <Avatar initials={initials(u.name)} bg="#233138" fg={u.color} size={30} />
                 <span className="min-w-0 flex-1 truncate text-sm">{u.name}</span>
                 <span className="text-xs text-muted">{role}</span>
               </li>

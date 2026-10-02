@@ -18,7 +18,7 @@ const users: Record<string, User> = {
   "nova-team": { id: "nova-team", name: "Đội ngũ Nova", short: "Đội ngũ Nova", title: "Nova Trust & Safety", color: "#FFD33D" },
 };
 
-const av = (initials: string, bg: string, fg = "#F6F2DE") => ({ initials, bg, fg });
+const av = (initials: string, bg: string, fg = "#e9edef") => ({ initials, bg, fg });
 
 const conversations: Record<string, Conversation> = {
   "nova-khoa": {
@@ -86,7 +86,7 @@ const conversations: Record<string, Conversation> = {
     kind: "group",
     title: "Nova Freelancers HCM",
     subtitle: "1.284 thành viên",
-    avatar: av("NF", "#1f2a14", "#9BE15D"),
+    avatar: av("NF", "#1b2e22", "#7FD1AE"),
     memberIds: ["u-tuan", "u-mai", "u-ngoc", "u-bao", "u-khoa", "u-ha"],
     unread: 12,
     muted: true,
@@ -96,7 +96,7 @@ const conversations: Record<string, Conversation> = {
     kind: "channel",
     title: "Đội ngũ Nova",
     subtitle: "Kênh thông báo · 48.910 người theo dõi",
-    avatar: av("N", "#2a2d24", "#E9E4CC"),
+    avatar: av("N", "#233138", "#e9edef"),
     memberIds: ["nova-team"],
     unread: 1,
   },

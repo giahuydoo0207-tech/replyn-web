@@ -372,7 +372,7 @@ function Composer({
           onClick={send}
           aria-label="Gửi"
           disabled={!text.trim()}
-          className="grid size-12 shrink-0 place-items-center rounded-full bg-yellow text-[#0B0D0A] transition hover:bg-[#ffdc5c] disabled:bg-white/6 disabled:text-muted"
+          className="grid size-12 shrink-0 place-items-center rounded-full bg-yellow text-[#0B0D0A] transition hover:bg-[#f7d064] disabled:bg-white/6 disabled:text-muted"
         >
           <SendHorizontal size={22} />
         </button>

@@ -58,7 +58,7 @@ function MilestoneLine({ t }: { t: Target }) {
     <div className="mb-4 rounded-xl bg-rail px-3.5 py-2.5 ring-1 ring-line">
       <p className="text-xs text-muted">Milestone {idx}</p>
       <p className="font-semibold">{ms.title}</p>
-      <p className="text-sm text-yellow">{usdc(ms.amount)}</p>
+      <p className="text-sm font-medium text-ink-2">{usdc(ms.amount)}</p>
     </div>
   );
 }
@@ -145,7 +145,7 @@ function SubmitDialog({ target, onClose }: { target: Target & { file?: File }; o
         }}
         className={cx(
           "rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors",
-          over ? "border-yellow bg-yellow/8" : "border-line",
+          over ? "border-yellow bg-white/4" : "border-line",
         )}
       >
         {hashing ? (
@@ -283,7 +283,7 @@ function DisputeDialog({ target, onClose }: { target: Target; onClose: () => voi
             <label key={f.id} className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 text-sm hover:bg-white/4">
               <input
                 type="checkbox"
-                className="size-4 accent-[#FFD33D]"
+                className="size-4 accent-[#f5c542]"
                 checked={picked.includes(f.id)}
                 onChange={(e) => setPicked((p) => (e.target.checked ? [...p, f.id] : p.filter((x) => x !== f.id)))}
               />

@@ -91,7 +91,7 @@ function MessageRow({
     >
       {!out && showAvatars && (
         <div className="w-8 shrink-0">
-          {last && sender && <Avatar initials={initials(sender.name)} bg="#23261e" fg={sender.color} size={32} />}
+          {last && sender && <Avatar initials={initials(sender.name)} bg="#233138" fg={sender.color} size={32} />}
         </div>
       )}
       <div
@@ -130,7 +130,7 @@ function Meta({ at, out }: { at: number; out: boolean }) {
   return (
     <span className="float-right ml-3 mt-1.5 inline-flex translate-y-1 items-center gap-1 text-[11px] leading-none text-ink-2/70">
       {hhmm(at)}
-      {out && <CheckCheck size={15} className="text-[#7fc4d6]" aria-label="Đã xem" />}
+      {out && <CheckCheck size={15} className="text-[#53bdeb]" aria-label="Đã xem" />}
     </span>
   );
 }
@@ -145,7 +145,7 @@ function ReplyQuote({ id, chatId }: { id: string; chatId: string }) {
       type="button"
       onClick={() => jumpToMessage(dispatch, id)}
       className="mb-1 block w-full rounded border-l-[3px] bg-black/20 py-1 pl-2 pr-2 text-left hover:bg-black/30"
-      style={{ borderColor: u?.color ?? "#A6A58F" }}
+      style={{ borderColor: u?.color ?? "#aebac1" }}
     >
       <span className="block text-[13px] font-semibold" style={{ color: u?.color }}>
         {u?.name}
@@ -229,7 +229,7 @@ function ProposalCard({ m }: { m: Message }) {
         </div>
       </div>
       <div className="space-y-3 px-4 py-3">
-        <p className="text-[14px] text-ink-2">
+        <p className="text-[14px] leading-relaxed text-ink-2">
           Chuyển cuộc trao đổi này sang workspace Replyn để khóa điều khoản, tạo milestone, nộp sản phẩm, nghiệm thu và theo
           dõi bằng chứng dự án.
         </p>

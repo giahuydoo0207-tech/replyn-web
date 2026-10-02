@@ -138,7 +138,7 @@ export function IconButton({
 
 type BtnVariant = "primary" | "secondary" | "danger" | "ghost";
 const BTN: Record<BtnVariant, string> = {
-  primary: "bg-yellow text-[#0B0D0A] hover:bg-[#ffdc5c] font-semibold",
+  primary: "bg-yellow text-[#0B0D0A] hover:bg-[#f7d064] font-semibold",
   secondary: "bg-white/6 text-ink hover:bg-white/10",
   danger: "bg-white/6 text-[#ff8f8f] hover:bg-danger/15",
   ghost: "text-ink-2 hover:bg-white/6 hover:text-ink",

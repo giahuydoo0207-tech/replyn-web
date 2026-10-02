@@ -138,7 +138,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
                 aria-current={active ? "true" : undefined}
                 className={cx(
                   "relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors",
-                  active ? "bg-white/[0.09]" : "hover:bg-white/[0.04]",
+                  active ? "bg-active" : "hover:bg-hover",
                 )}
               >
                 <Avatar {...c.avatar} size={48} />
@@ -156,7 +156,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
                     </span>
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5">
-                    {mine && <CheckCheck size={16} className="shrink-0 text-[#7fc4d6]" aria-label="Đã xem" />}
+                    {mine && <CheckCheck size={16} className="shrink-0 text-[#53bdeb]" aria-label="Đã xem" />}
                     <p className="truncate text-[14px] text-muted">
                       {showSender && sender && <span style={{ color: sender.color }}>{sender.short}: </span>}
                       {last ? previewOf(state, last) : c.subtitle}

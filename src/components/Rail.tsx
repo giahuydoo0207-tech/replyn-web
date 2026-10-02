@@ -149,7 +149,7 @@ export function Rail() {
             aria-label={`Hồ sơ: ${user.name}`}
           >
             <span className="grid w-12 shrink-0 place-items-center">
-              <Avatar initials={initials(user.name)} bg="#2a2d24" fg={user.color} size={34} ring />
+              <Avatar initials={initials(user.name)} bg="#233138" fg={user.color} size={34} ring />
             </span>
             <Label pinned={pinned} className="min-w-0 text-left">
               <span className="block truncate text-sm font-medium">{user.name}</span>
@@ -212,7 +212,7 @@ function RailItem({
       title={label}
       className={cx(
         "relative mx-2 flex h-12 w-[calc(100%-16px)] items-center rounded-xl text-[15px] transition-colors focus-visible:outline-2 focus-visible:outline-white/40",
-        active ? "bg-white/10 text-ink" : "text-ink-2 hover:bg-white/6 hover:text-ink",
+        active ? "bg-active text-ink" : "text-ink-2 hover:bg-hover hover:text-ink",
       )}
     >
       <span className="relative grid w-12 shrink-0 place-items-center">

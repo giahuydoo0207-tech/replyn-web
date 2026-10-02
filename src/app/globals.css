@@ -1,34 +1,34 @@
 @import "tailwindcss";
 
-/* Replyn design tokens — vàng / đen, bố cục màu kiểu WhatsApp dark */
+/* Replyn design tokens — dark neutral (không ám vàng), vàng chỉ là accent */
 :root {
-  --app: #070806;
-  --rail: #0b0d0a;
-  --sidebar: #11130f;
-  --canvas: #0a0c09;
-  --panel: #171a14;
-  --elevated: #202419;
-  --hover: #1a1d16;
-  --border: #303625;
+  --app: #0c1317;
+  --rail: #111b21;
+  --sidebar: #111b21;
+  --canvas: #0b141a;
+  --panel: #1b252b;
+  --elevated: #202c33;
+  --hover: #202c33;
+  --active: #2a3942;
+  --border: #26343b;
 
-  --text: #f6f2de;
-  --text-2: #a6a58f;
-  --muted: #6f725e;
+  --text: #e9edef;
+  --text-2: #aebac1;
+  --muted: #8696a0;
 
-  --yellow: #ffd33d;
-  --yellow-deep: #f2b705;
+  --yellow: #f5c542;
+  --yellow-deep: #e0aa1f;
   --amber: #ffb65c;
-  --success: #39d98a;
+  --success: #3ddc97;
   --danger: #ff6b6b;
-  --link: #4aa3ff;
-  --cyan: #5fd4e0;
+  --link: #53bdeb;
+  --cyan: #53bdeb;
 
-  /* bubble dịu, không viền vàng — vàng chỉ còn là accent */
-  --bubble-in: #1d2019;
-  --bubble-out: #383223;
-  --notice: #1a1d16;
+  /* chỉ bubble của mình mang sắc vàng đậm (giống cách WhatsApp dùng bubble xanh) */
+  --bubble-in: #202c33;
+  --bubble-out: #583a0c;
+  --notice: #182229;
 }
-
 @theme inline {
   --color-app: var(--app);
   --color-rail: var(--rail);
@@ -37,6 +37,7 @@
   --color-panel: var(--panel);
   --color-elevated: var(--elevated);
   --color-hover: var(--hover);
+  --color-active: var(--active);
   --color-line: var(--border);
   --color-ink: var(--text);
   --color-ink-2: var(--text-2);
@@ -66,7 +67,7 @@ body {
   color-scheme: dark;
 }
 
-/* Nền khung chat: doodle line-icon trung tính, rất mờ */
+/* Nền khung chat: doodle line-icon trắng rất mờ, không tint màu */
 .chat-canvas {
   position: relative;
   background-color: var(--canvas);
@@ -79,28 +80,20 @@ body {
   z-index: -1;
   background-image: url("/pattern.svg");
   background-size: 300px 300px;
-  opacity: 0.045;
-  pointer-events: none;
-}
-.chat-canvas::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(ellipse 70% 60% at 50% 40%, transparent 40%, rgb(0 0 0 / 0.35));
+  opacity: 0.06;
   pointer-events: none;
 }
 
 /* Scrollbar mảnh kiểu Telegram */
 .thin-scroll {
   scrollbar-width: thin;
-  scrollbar-color: #2c3122 transparent;
+  scrollbar-color: #374248 transparent;
 }
 .thin-scroll::-webkit-scrollbar {
   width: 6px;
 }
 .thin-scroll::-webkit-scrollbar-thumb {
-  background: #2c3122;
+  background: #374248;
   border-radius: 6px;
 }
 
@@ -121,10 +114,10 @@ body {
 @keyframes flash {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgb(255 211 61 / 0);
+    box-shadow: 0 0 0 0 rgb(245 197 66 / 0);
   }
   30% {
-    box-shadow: 0 0 0 2px rgb(246 242 222 / 0.5);
+    box-shadow: 0 0 0 2px rgb(245 197 66 / 0.55);
   }
 }
 .flash {

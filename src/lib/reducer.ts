@@ -389,7 +389,7 @@ export function reducer(state: AppState, action: Action): AppState {
         kind: "replyn",
         title: action.title,
         subtitle: `${business.name} · ${s.users[action.freelancerId].name}`,
-        avatar: { initials: initials(action.title), bg: "#24271f", fg: "#E9E4CC" },
+        avatar: { initials: initials(action.title), bg: "#233138", fg: "#e9edef" },
         memberIds: [action.businessId, action.freelancerId],
         unread: action.unread ?? 0,
         workspaceId: action.wsId,
