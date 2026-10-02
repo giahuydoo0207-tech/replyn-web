@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Replyn Web — MVP demo (UniHackFest 10/10/2026)
 
-## Getting Started
+> Nova giúp hai bên gặp nhau. Replyn giúp hai bên tin nhau để làm việc.
 
-First, run the development server:
+Web demo UI/UX của Replyn: chat + workspace + milestone + bằng chứng dự án. Bố cục học theo WhatsApp Web,
+mật độ tin nhắn học theo Telegram, theme vàng-đen. **Toàn bộ dữ liệu là mock, chưa có backend.**
+Cấp vốn, giải ngân và phí vận hành đều là mô phỏng. Replyn không custody tiền thật.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Chạy
+
+```powershell
+cd D:\replyn-web
+npm install
+npm run dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Chụp màn hình các cảnh demo và chạy thử luồng chính (cần `npm run dev` đang chạy và Chrome đã cài):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```powershell
+$env:BASE_URL="http://localhost:3000"; npm run screens   # ảnh lưu ở ./screenshots
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Luồng demo
 
-## Learn More
+Nút **Demo** ở rail trái cho phép nhảy thẳng tới từng cảnh và đổi vai **Business / Freelancer**:
 
-To learn more about Next.js, take a look at the following resources:
+1. **Nova Chat**: phỏng vấn xong, menu `+` chỉ có *Gửi tệp · Gửi ảnh · Đề xuất Replyn*.
+2. **Đề xuất Replyn**: proposal card, CTA *Mở Replyn / Để sau*.
+3. **Workspace & milestone**: điều khoản đã khóa (ghim), M1 *Đã cấp vốn (mô phỏng)*.
+4. **Nộp sản phẩm**: file card có SHA-256 và version, trạng thái *Đang chờ nghiệm thu*.
+5. **Tranh chấp**: yêu cầu sửa, nộp lại v2, mở tranh chấp, *Đội ngũ Nova* review.
+6. **Quyết định & bằng chứng**: chia 600/400, phí mô phỏng, timeline *Bằng chứng dự án*.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Mọi bước cũng làm được bằng thao tác thật: kéo thả file vào khung chat để nộp sản phẩm (hash tính ngay trên
+trình duyệt), nút trên milestone card, panel phải (Milestones · Bằng chứng · Files · Tranh chấp).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Cấu trúc
 
-## Deploy on Vercel
+```
+src/
+  app/                 layout (Inter + vietnamese), globals.css (design tokens vàng-đen, pattern khung chat)
+  lib/
+    types.ts           Workspace, Milestone, Submission, Dispute, EvidenceEvent, Message (+ refs)
+    reducer.ts         toàn bộ luồng nghiệp vụ; mỗi hành động sinh message trong chat + sự kiện bằng chứng
+    seed.ts            mock data, workspace phụ (dựng bằng chính reducer), các scene demo
+    fees.ts            BASIC 7% / ADVANCED 10% (mô phỏng), phí chỉ tính trên phần freelancer nhận
+    store.tsx          React context + useReducer
+  components/
+    Rail.tsx           rail icon trái + menu Demo / đổi vai
+    ChatList.tsx       search, filter chips, unread, badge trạng thái workspace
+    chat/              ChatView (header, banner, ghim, composer), Messages (bubble kiểu Telegram + card nghiệp vụ)
+    panel/             Milestones, Bằng chứng dự án, Files, Tranh chấp + mô phỏng phí
+    actions.tsx        dialog Nộp sản phẩm / Yêu cầu sửa / Mở tranh chấp
+public/pattern.svg     doodle line-icon cho nền chat (tự vẽ, không dùng asset WhatsApp/Telegram)
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Không copy logo, icon, brand hay code của WhatsApp/Telegram, chỉ học UX pattern. Icon dùng `lucide-react`.
