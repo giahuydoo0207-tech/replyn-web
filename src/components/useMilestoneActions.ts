@@ -25,9 +25,17 @@ export function useMilestoneActions(ws: Workspace, ms: Milestone): { actions: Ms
 
   switch (ms.status) {
     case "awaiting_funding":
+      if (!ws.termsLockedAt) {
+        return {
+          actions: [
+            { key: "terms", label: "Xem điều khoản", variant: "secondary", run: () => dispatch({ type: "SET_PANEL", tab: "terms", open: true }) },
+          ],
+          waiting: "Cần khóa điều khoản trước khi ký quỹ",
+        };
+      }
       return isBiz
-        ? { actions: [{ key: "fund", label: "Cấp vốn (mô phỏng)", variant: "primary", run: () => dispatch({ type: "FUND", ...t }) }] }
-        : { actions: [], waiting: "Chờ business cấp vốn (mô phỏng)" };
+        ? { actions: [{ key: "fund", label: "Ký quỹ (mô phỏng)", variant: "primary", run: () => dispatch({ type: "FUND", ...t }) }] }
+        : { actions: [], waiting: "Chờ business ký quỹ (mô phỏng)" };
     case "funded_sim":
       return isFl
         ? { actions: [{ key: "submit", label: "Nộp sản phẩm", variant: "primary", run: () => dialogs.submit(t) }] }

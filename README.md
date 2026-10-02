@@ -20,19 +20,26 @@ Chụp màn hình các cảnh demo và chạy thử luồng chính (cần `npm r
 $env:BASE_URL="http://localhost:3000"; npm run screens   # ảnh lưu ở ./screenshots
 ```
 
+## IA: tách lớp Chat và lớp Protection
+
+- **Rail trái**: thu gọn 64px, hover thì giãn ra dạng overlay, ☰ để ghim mở. Label dùng `opacity` + `pointer-events`.
+- **Chat giữa**: chỉ có bubble, file preview gọn, và notice 1 dòng kèm link mở đúng tab bên phải. Không còn card nghiệp vụ.
+- **Replyn Protection (panel phải)**: Tổng quan · Điều khoản · Milestones · Files · Bằng chứng · Tranh chấp.
+- **Màu**: vàng chỉ là accent (logo, nút hành động chính, chấm active). Còn lại dùng ngà/xám.
+
 ## Luồng demo
 
 Nút **Demo** ở rail trái cho phép nhảy thẳng tới từng cảnh và đổi vai **Business / Freelancer**:
 
 1. **Nova Chat**: phỏng vấn xong, menu `+` chỉ có *Gửi tệp · Gửi ảnh · Đề xuất Replyn*.
 2. **Đề xuất Replyn**: proposal card, CTA *Mở Replyn / Để sau*.
-3. **Workspace & milestone**: điều khoản đã khóa (ghim), M1 *Đã cấp vốn (mô phỏng)*.
-4. **Nộp sản phẩm**: file card có SHA-256 và version, trạng thái *Đang chờ nghiệm thu*.
+3. **Workspace & milestone**: khóa điều khoản ở tab Điều khoản, M1 *Đã ký quỹ (mô phỏng)*.
+4. **Nộp sản phẩm**: chat chỉ có bubble file gọn + notice; SHA-256 nằm trong tab Files.
 5. **Tranh chấp**: yêu cầu sửa, nộp lại v2, mở tranh chấp, *Đội ngũ Nova* review.
 6. **Quyết định & bằng chứng**: chia 600/400, phí mô phỏng, timeline *Bằng chứng dự án*.
 
 Mọi bước cũng làm được bằng thao tác thật: kéo thả file vào khung chat để nộp sản phẩm (hash tính ngay trên
-trình duyệt), nút trên milestone card, panel phải (Milestones · Bằng chứng · Files · Tranh chấp).
+trình duyệt), hoặc dùng các nút trong panel Replyn Protection.
 
 ## Cấu trúc
 
@@ -48,8 +55,8 @@ src/
   components/
     Rail.tsx           rail icon trái + menu Demo / đổi vai
     ChatList.tsx       search, filter chips, unread, badge trạng thái workspace
-    chat/              ChatView (header, banner, ghim, composer), Messages (bubble kiểu Telegram + card nghiệp vụ)
-    panel/             Milestones, Bằng chứng dự án, Files, Tranh chấp + mô phỏng phí
+    chat/              ChatView (header + tagline, dòng ghim, composer), Messages (bubble + notice 1 dòng)
+    panel/             Replyn Protection: Tổng quan, Điều khoản, Milestones, Files, Bằng chứng, Tranh chấp
     actions.tsx        dialog Nộp sản phẩm / Yêu cầu sửa / Mở tranh chấp
 public/pattern.svg     doodle line-icon cho nền chat (tự vẽ, không dùng asset WhatsApp/Telegram)
 ```

@@ -13,7 +13,7 @@ export type FeeTier = "BASIC" | "ADVANCED";
 
 export type MilestoneStatus =
   | "awaiting_funding" // Chờ cấp vốn
-  | "funded_sim" // Đã cấp vốn (mô phỏng)
+  | "funded_sim" // Đã ký quỹ (mô phỏng)
   | "submitted" // Đã nộp sản phẩm
   | "in_review" // Đang chờ nghiệm thu
   | "revision_requested" // Yêu cầu sửa
@@ -33,6 +33,8 @@ export interface Milestone {
   revisionLimit: number;
   revisionsUsed: number;
   criteria: string[];
+  scope?: string;
+  deliverables?: string[];
   submissionIds: string[];
   payout?: Payout;
 }
@@ -81,6 +83,7 @@ export interface Dispute {
 }
 
 export type EvidenceType =
+  | "workspace_created"
   | "terms_locked"
   | "funded"
   | "submitted"
@@ -110,7 +113,7 @@ export interface Workspace {
   businessId: string;
   freelancerId: string;
   feeTier: FeeTier;
-  termsLockedAt: number;
+  termsLockedAt: number | null; // null = hai bên chưa khóa điều khoản
   milestones: Milestone[];
   attachments: Attachment[];
   submissions: Submission[];
@@ -147,6 +150,8 @@ export interface Message {
   text?: string;
   replyToId?: string;
   refs?: MessageRefs;
+  /** tab của panel Replyn Protection mà notice trỏ tới */
+  link?: "overview" | "terms" | "milestones" | "files" | "evidence" | "dispute";
 }
 
 export type ProposalStatus = "pending" | "opened" | "later";
@@ -154,7 +159,7 @@ export type ProposalStatus = "pending" | "opened" | "later";
 export interface ProposalDraft {
   projectTitle: string;
   feeTier: FeeTier;
-  milestones: Pick<Milestone, "id" | "title" | "amount" | "deadline" | "criteria">[];
+  milestones: Pick<Milestone, "id" | "title" | "amount" | "deadline" | "criteria" | "scope" | "deliverables">[];
 }
 
 export interface Conversation {

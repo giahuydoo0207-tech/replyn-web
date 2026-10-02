@@ -39,6 +39,8 @@ const conversations: Record<string, Conversation> = {
           title: "Thiết kế UI landing page",
           amount: 1000,
           deadline: "15/10/2026",
+          scope: "Thiết kế giao diện landing page ra mắt menu mùa thu: hero, menu, câu chuyện thương hiệu, đặt bàn, bản đồ 3 chi nhánh, footer.",
+          deliverables: ["File Figma desktop + mobile", "UI kit (màu, font, component)", "Prototype click được"],
           criteria: [
             "Figma desktop + mobile, đủ 6 section",
             "Đúng brand guideline Mộc Coffee",
@@ -50,6 +52,8 @@ const conversations: Record<string, Conversation> = {
           title: "Code & bàn giao landing page",
           amount: 1500,
           deadline: "25/10/2026",
+          scope: "Dựng landing page từ bản thiết kế đã nghiệm thu, tích hợp form đặt bàn và bản đồ chi nhánh.",
+          deliverables: ["Source code Next.js", "Bản deploy staging", "Tài liệu hướng dẫn deploy"],
           criteria: [
             "Next.js, responsive mobile",
             "Lighthouse Performance ≥ 90",
@@ -92,7 +96,7 @@ const conversations: Record<string, Conversation> = {
     kind: "channel",
     title: "Đội ngũ Nova",
     subtitle: "Kênh thông báo · 48.910 người theo dõi",
-    avatar: av("N", "#FFD33D", "#0B0D0A"),
+    avatar: av("N", "#2a2d24", "#E9E4CC"),
     memberIds: ["nova-team"],
     unread: 1,
   },
@@ -168,6 +172,7 @@ const fillerActions: Action[] = [
       { id: "lt-2", title: "App React Native MVP", amount: 2000, deadline: "12/10/2026", criteria: ["Đặt lịch, nhắc lịch, thanh toán tại quầy", "Build Android + iOS TestFlight"] },
     ],
   },
+  { type: "LOCK_TERMS", wsId: "ws-lotus" },
   { type: "FUND", wsId: "ws-lotus", milestoneId: "lt-1" },
   { type: "SET_CLOCK", at: d(4, 17, 0) },
   { type: "SUBMIT", wsId: "ws-lotus", milestoneId: "lt-1", file: mockFile("lotus-ux-flow-v1.fig", 8_420_112), note: "Flow đặt lịch 12 màn + prototype." },
@@ -189,6 +194,7 @@ const fillerActions: Action[] = [
       { id: "tm-1", title: "Logo & bộ nhận diện", amount: 1200, deadline: "08/10/2026", criteria: ["3 phương án logo", "Bảng màu, font, 10 ấn phẩm"] },
     ],
   },
+  { type: "LOCK_TERMS", wsId: "ws-tramay" },
   { type: "FUND", wsId: "ws-tramay", milestoneId: "tm-1" },
   { type: "SET_CLOCK", at: d(8, 18, 0) },
   { type: "SUBMIT", wsId: "ws-tramay", milestoneId: "tm-1", file: mockFile("tramay-brand-guideline.pdf", 12_310_400), note: "Brand guideline bản hoàn chỉnh." },
@@ -216,7 +222,7 @@ export function initialState(): AppState {
     messages: buildMessages(),
     workspaces: {},
     looseFiles: {},
-    ui: { activeChatId: null, panelTab: "milestones", panelOpen: true, filter: "all", flashId: null },
+    ui: { activeChatId: null, panelTab: "overview", panelOpen: true, filter: "all", flashId: null },
   };
   for (const a of fillerActions) {
     // dispute id phụ thuộc seq, nên tra lại id thật trước khi dispatch
@@ -256,8 +262,8 @@ export interface Scene {
 export const SCENES: Scene[] = [
   { id: 1, title: "Nova Chat", hint: "Phỏng vấn xong, mở menu “+” → Đề xuất Replyn" },
   { id: 2, title: "Đề xuất Replyn", hint: "Proposal card trong chat, CTA “Mở Replyn”" },
-  { id: 3, title: "Workspace & milestone", hint: "Điều khoản đã khóa, M1 đã cấp vốn (mô phỏng)" },
-  { id: 4, title: "Nộp sản phẩm", hint: "File card có hash, đang chờ nghiệm thu" },
+  { id: 3, title: "Workspace & milestone", hint: "Điều khoản đã khóa, M1 đã ký quỹ (mô phỏng)" },
+  { id: 4, title: "Nộp sản phẩm", hint: "Notice nộp file, hash trong tab Files" },
   { id: 5, title: "Tranh chấp", hint: "Sửa → nộp lại → mở tranh chấp → Đội ngũ Nova review" },
   { id: 6, title: "Quyết định & bằng chứng", hint: "Chia tiền 600/400 + timeline Bằng chứng dự án" },
 ];
@@ -270,8 +276,9 @@ export function buildScene(n: number): AppState {
   if (n >= 3) {
     run({ type: "SEND_TEXT", chatId: "nova-khoa", senderId: "u-khoa", text: "Em đồng ý, mình chuyển sang Replyn ạ." });
     run({ type: "OPEN_REPLYN", chatId: "nova-khoa" });
+    run({ type: "LOCK_TERMS", wsId: ws().id });
     run({ type: "FUND", wsId: ws().id, milestoneId: "ms-1" });
-    run({ type: "SEND_TEXT", chatId: wsChatId(ws().id), senderId: "u-khoa", text: "Em nhận được thông báo cấp vốn (mô phỏng) rồi ạ. Em bắt đầu thiết kế luôn." });
+    run({ type: "SEND_TEXT", chatId: wsChatId(ws().id), senderId: "u-khoa", text: "Em nhận được thông báo ký quỹ (mô phỏng) rồi ạ. Em bắt đầu thiết kế luôn." });
   }
   if (n >= 4) {
     run({ type: "SEND_TEXT", chatId: wsChatId(ws().id), senderId: "u-ha", text: "Nhớ bám brand guideline mới nhé, màu nâu đất là chủ đạo." });
@@ -310,6 +317,7 @@ export function buildScene(n: number): AppState {
   }
   if (n >= 3) run({ type: "SELECT_CHAT", chatId: wsChatId(ws().id) });
   if (n === 5) run({ type: "SET_PANEL", tab: "dispute", open: true });
-  if (n === 3 || n === 4) run({ type: "SET_PANEL", tab: "milestones", open: true });
+  if (n === 3) run({ type: "SET_PANEL", tab: "overview", open: true });
+  if (n === 4) run({ type: "SET_PANEL", tab: "files", open: true });
   return s;
 }

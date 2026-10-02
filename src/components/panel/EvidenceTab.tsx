@@ -4,7 +4,7 @@ import {
   AlertTriangle,
   BadgeCheck,
   Banknote,
-  CornerDownRight,
+  FilePlus2,
   FileUp,
   Gavel,
   Lock,
@@ -19,68 +19,75 @@ import { jumpToMessage, useStore } from "@/lib/store";
 import type { EvidenceType, Workspace } from "@/lib/types";
 import { cx } from "../ui";
 
-const META: Record<EvidenceType, { icon: ComponentType<{ size?: number }>; tone: string }> = {
-  terms_locked: { icon: Lock, tone: "bg-yellow/15 text-yellow ring-yellow/40" },
-  funded: { icon: Banknote, tone: "bg-success/15 text-success ring-success/40" },
-  submitted: { icon: FileUp, tone: "bg-cyan/15 text-cyan ring-cyan/40" },
-  revision: { icon: PencilLine, tone: "bg-amber/15 text-amber ring-amber/40" },
-  resubmitted: { icon: RefreshCw, tone: "bg-cyan/15 text-cyan ring-cyan/40" },
-  accepted: { icon: BadgeCheck, tone: "bg-success/15 text-success ring-success/40" },
-  dispute_opened: { icon: AlertTriangle, tone: "bg-danger/15 text-danger ring-danger/40" },
-  nova_review: { icon: Search, tone: "bg-cyan/15 text-cyan ring-cyan/40" },
-  decision: { icon: Gavel, tone: "bg-yellow/15 text-yellow ring-yellow/40" },
-  released: { icon: Banknote, tone: "bg-success/15 text-success ring-success/40" },
+const ICON: Record<EvidenceType, ComponentType<{ size?: number }>> = {
+  workspace_created: FilePlus2,
+  terms_locked: Lock,
+  funded: Banknote,
+  submitted: FileUp,
+  revision: PencilLine,
+  resubmitted: RefreshCw,
+  accepted: BadgeCheck,
+  dispute_opened: AlertTriangle,
+  nova_review: Search,
+  decision: Gavel,
+  released: Banknote,
 };
 
+/** Sổ cái minh bạch — trả lời câu hỏi "ai bảo vệ hai bên, bằng chứng đâu?" */
 export function EvidenceTab({ ws }: { ws: Workspace }) {
   const { state, dispatch } = useStore();
   const actorLabel = (id: string) => {
     if (id === SYSTEM_ID) return "Replyn";
     if (id === NOVA_TEAM_ID) return "Đội ngũ Nova";
-    const role = id === ws.businessId ? "Business" : "Freelancer";
-    return `${state.users[id]?.name} · ${role}`;
+    return `${state.users[id]?.name} · ${id === ws.businessId ? "Business" : "Freelancer"}`;
   };
 
   return (
     <div>
-      <div className="rounded-2xl bg-[#1c1704] p-3.5 ring-1 ring-yellow/20">
-        <h3 className="flex items-center gap-2 text-[17px] font-bold text-yellow">
-          <Lock size={17} /> Bằng chứng dự án
+      <div className="rounded-xl bg-panel p-4">
+        <h3 className="flex items-center gap-2 text-[16px] font-semibold">
+          <Lock size={16} className="text-ink-2" /> Bằng chứng dự án
         </h3>
-        <p className="mt-1 text-[13px] text-[#e3d39b]">
+        <p className="mt-1 text-[13px] text-ink-2">
           Mọi sự kiện được ghi theo thời gian, gắn với tin nhắn, file và milestone. Không bên nào sửa hoặc xóa được.
         </p>
-        <p className="mt-2 text-xs text-ink-2">
+        <p className="mt-2 text-xs text-muted">
           {ws.evidence.length} sự kiện · {ws.attachments.length} file có hash · {ws.disputes.length} tranh chấp
         </p>
       </div>
 
-      <ol className="relative mt-4 space-y-0">
+      <ol className="relative mt-4">
         {ws.evidence.map((e, i) => {
-          const { icon: Icon, tone } = META[e.type];
+          const Icon = ICON[e.type];
           const file = e.attachmentId ? ws.attachments.find((a) => a.id === e.attachmentId) : undefined;
-          const lastItem = i === ws.evidence.length - 1;
+          const last = i === ws.evidence.length - 1;
           const msIdx = e.milestoneId ? ws.milestones.findIndex((m) => m.id === e.milestoneId) + 1 : 0;
+          const danger = e.type === "dispute_opened";
           return (
-            <li key={e.id} className="relative flex gap-3 pb-4">
-              {!lastItem && <span className="absolute left-[17px] top-9 bottom-0 w-px bg-line" aria-hidden />}
-              <span className={cx("z-10 grid size-9 shrink-0 place-items-center rounded-full ring-1", tone)}>
-                <Icon size={17} />
+            <li key={e.id} id={`ev-${e.id}`} className={cx("relative flex gap-3 rounded-lg pb-4", state.ui.flashId === e.id && "flash")}>
+              {!last && <span className="absolute bottom-0 left-[15px] top-8 w-px bg-white/8" aria-hidden />}
+              <span
+                className={cx(
+                  "z-10 grid size-8 shrink-0 place-items-center rounded-full bg-elevated",
+                  danger ? "text-danger" : "text-ink-2",
+                )}
+              >
+                <Icon size={15} />
               </span>
-              <div className="min-w-0 flex-1 pt-0.5">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-[15px] font-semibold leading-snug">{e.title}</p>
-                  <time className="shrink-0 font-mono text-[11px] text-muted">
+                  <p className="text-[14px] font-medium leading-snug">{e.title}</p>
+                  <time className="shrink-0 text-[11px] tabular-nums text-muted">
                     {ddmmyyyy(e.at).slice(0, 5)} {hhmm(e.at)}
                   </time>
                 </div>
-                <p className="text-[12px] font-medium text-ink-2">
+                <p className="text-[12px] text-muted">
                   {actorLabel(e.actorId)}
-                  {msIdx > 0 && <span className="text-muted"> · M{msIdx}</span>}
+                  {msIdx > 0 && ` · M${msIdx}`}
                 </p>
-                <p className="mt-1 text-[13px] text-ink">{e.description}</p>
+                <p className="mt-0.5 text-[13px] text-ink-2">{e.description}</p>
                 {file && (
-                  <p className="mt-1 truncate font-mono text-[11px] text-cyan" title={file.hash}>
+                  <p className="mt-0.5 truncate font-mono text-[11px] text-muted" title={file.hash}>
                     {file.name} · sha256 {shortHash(file.hash)}
                   </p>
                 )}
@@ -88,9 +95,9 @@ export function EvidenceTab({ ws }: { ws: Workspace }) {
                   <button
                     type="button"
                     onClick={() => jumpToMessage(dispatch, e.messageId!)}
-                    className="mt-1 inline-flex items-center gap-1 text-[12px] font-semibold text-yellow hover:underline"
+                    className="mt-0.5 text-[12px] text-ink-2 underline decoration-white/20 underline-offset-2 hover:text-ink"
                   >
-                    <CornerDownRight size={13} /> Xem tin nhắn liên quan
+                    Xem tin nhắn liên quan
                   </button>
                 )}
               </div>

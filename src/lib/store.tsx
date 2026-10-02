@@ -39,3 +39,13 @@ export function jumpToMessage(dispatch: Dispatch<Action>, messageId: string) {
   });
   setTimeout(() => dispatch({ type: "FLASH", id: null }), 1700);
 }
+
+/** Mở tab Bằng chứng và nháy sự kiện liên quan */
+export function jumpToEvidence(dispatch: Dispatch<Action>, evidenceId: string) {
+  dispatch({ type: "SET_PANEL", tab: "evidence", open: true });
+  dispatch({ type: "FLASH", id: evidenceId });
+  setTimeout(() => {
+    document.getElementById(`ev-${evidenceId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 60);
+  setTimeout(() => dispatch({ type: "FLASH", id: null }), 1700);
+}

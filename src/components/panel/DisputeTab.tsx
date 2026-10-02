@@ -6,15 +6,15 @@ import { computePayout, FEE_LABEL, usdc } from "@/lib/fees";
 import { ddmmyyyy, hhmm } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import type { Dispute, FeeTier, Milestone, Workspace } from "@/lib/types";
-import { FileCard } from "../chat/Messages";
+import { FileCard } from "../FileCard";
 import { Badge, Button, cx, StatusBadge } from "../ui";
 
 export function DisputeTab({ ws }: { ws: Workspace }) {
   if (!ws.disputes.length) {
     return (
       <div className="space-y-4">
-        <div className="rounded-2xl bg-panel p-4 text-center ring-1 ring-line">
-          <ShieldCheck size={30} className="mx-auto text-success" />
+        <div className="rounded-xl bg-panel p-4 text-center">
+          <ShieldCheck size={28} className="mx-auto text-muted" />
           <p className="mt-2 font-semibold">Chưa có tranh chấp</p>
           <p className="mt-1 text-sm text-ink-2">
             Khi có bất đồng, một bên mở tranh chấp trên milestone. Milestone sẽ được tạm giữ. Hai bên có thể cung cấp bằng
@@ -47,10 +47,10 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl bg-[#211313] p-4 ring-1 ring-danger/35">
+      <section className="rounded-xl bg-panel p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-[17px] font-bold text-danger">
-            <AlertTriangle size={18} /> Tranh chấp M{idx}
+          <h3 className="flex items-center gap-2 text-[16px] font-semibold">
+            <AlertTriangle size={17} className="text-danger" /> Tranh chấp M{idx}
           </h3>
           <StatusBadge status={ms.status} />
         </div>
@@ -64,7 +64,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
               <span
                 className={cx(
                   "grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold",
-                  i < step || resolved ? "bg-success text-[#0B0D0A]" : i === step ? "bg-yellow text-[#0B0D0A]" : "bg-elevated text-muted",
+                  i < step || resolved ? "bg-success/20 text-success" : i === step ? "bg-ink text-app" : "bg-elevated text-muted",
                 )}
               >
                 {i < step || resolved ? <Check size={13} /> : i + 1}
@@ -87,27 +87,27 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
           </div>
           <div>
             <dt className="text-xs text-muted">Lý do</dt>
-            <dd className="mt-0.5 rounded-lg bg-black/25 px-3 py-2">{d.reason}</dd>
+            <dd className="mt-0.5 rounded-lg bg-white/[0.04] px-3 py-2">{d.reason}</dd>
           </div>
           <div>
             <dt className="text-xs text-muted">Người review</dt>
-            <dd className="font-semibold text-cyan">Đội ngũ Nova</dd>
+            <dd className="font-semibold">Đội ngũ Nova</dd>
           </div>
         </dl>
-        <p className="mt-3 text-[13px] text-[#ffc9c9]">
+        <p className="mt-3 text-[13px] text-ink-2">
           Milestone sẽ được tạm giữ. Hai bên có thể cung cấp bằng chứng trước khi Đội ngũ Nova đưa ra quyết định.
         </p>
       </section>
 
       <section>
-        <h4 className="text-[15px] font-bold">File chứng cứ ({d.evidenceAttachmentIds.length})</h4>
+        <h4 className="text-[14px] font-semibold">File chứng cứ ({d.evidenceAttachmentIds.length})</h4>
         <ul className="mt-2 space-y-1.5">
           {d.evidenceAttachmentIds.length === 0 && <li className="text-sm text-muted">Chưa đính kèm file.</li>}
           {d.evidenceAttachmentIds.map((id) => {
             const a = ws.attachments.find((x) => x.id === id);
             return a ? (
-              <li key={id} className="rounded-xl bg-panel px-3 ring-1 ring-line">
-                <FileCard a={a} compact />
+              <li key={id} className="rounded-xl bg-panel px-3">
+                <FileCard a={a} />
               </li>
             ) : null;
           })}
@@ -115,17 +115,17 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
       </section>
 
       {resolved && ms.payout ? (
-        <section className="rounded-2xl bg-[#14242a] p-4 ring-1 ring-cyan/30">
-          <h4 className="flex items-center gap-2 font-bold text-cyan">
+        <section className="rounded-xl bg-panel p-4">
+          <h4 className="flex items-center gap-2 font-semibold">
             <Gavel size={17} /> Quyết định của Đội ngũ Nova
           </h4>
           <PayoutRows ws={ws} ms={ms} gross={ms.payout.freelancerGross} tier={ws.feeTier} />
         </section>
       ) : (
-        <section className="rounded-2xl bg-panel p-4 ring-1 ring-line">
+        <section className="rounded-xl bg-panel p-4">
           <div className="flex items-center justify-between gap-2">
-            <h4 className="font-bold">Mô phỏng quyết định</h4>
-            <Badge tone="cyan">Thao tác của Đội ngũ Nova</Badge>
+            <h4 className="font-semibold">Mô phỏng quyết định</h4>
+            <Badge tone="muted">Thao tác của Đội ngũ Nova</Badge>
           </div>
           <p className="mt-1 text-[13px] text-ink-2">Bản demo cho phép trình diễn quyết định Release / Refund / Split.</p>
 
@@ -145,7 +145,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
                   onClick={() => setGross(o.v)}
                   className={cx(
                     "rounded-lg py-2 text-sm font-semibold transition-colors",
-                    kind === o.label ? "bg-yellow text-[#0B0D0A]" : "text-ink-2 hover:bg-white/6",
+                    kind === o.label ? "bg-white/12 text-ink" : "text-ink-2 hover:bg-white/6",
                   )}
                 >
                   {o.label}
@@ -165,7 +165,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
             step={50}
             value={gross}
             onChange={(e) => setGross(Number(e.target.value))}
-            className="mt-2 w-full accent-[#FFD33D]"
+            className="mt-2 w-full accent-[#E9E4CC]"
           />
 
           <PayoutRows ws={ws} ms={ms} gross={gross} tier={ws.feeTier} />
@@ -196,7 +196,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
 function PayoutRows({ ws, ms, gross, tier }: { ws: Workspace; ms: Milestone; gross: number; tier: FeeTier }) {
   const p = computePayout(ms.amount, gross, tier);
   return (
-    <dl className="mt-3 space-y-1.5 rounded-xl bg-black/25 p-3 text-[14px]">
+    <dl className="mt-3 space-y-1.5 rounded-lg bg-white/[0.04] p-3 text-[14px]">
       <Line k="Milestone" v={usdc(ms.amount)} />
       <Line k={FEE_LABEL[ws.feeTier]} v={`− ${usdc(p.fee)}`} />
       <Line k="Freelancer nhận dự kiến" v={usdc(p.freelancerNet)} strong />
@@ -222,8 +222,8 @@ function FeeTable({ ws, ms, gross }: { ws: Workspace; ms: Milestone; gross: numb
   const rows = tiers.map((t) => ({ t, full: computePayout(ms.amount, ms.amount, t), part: computePayout(ms.amount, gross, t) }));
   const isSplit = gross > 0 && gross < ms.amount;
   return (
-    <section className="rounded-2xl bg-panel p-4 ring-1 ring-line">
-      <h4 className="font-bold">Mô phỏng phí</h4>
+    <section className="rounded-xl bg-panel p-4">
+      <h4 className="font-semibold">Mô phỏng phí</h4>
       <p className="mt-0.5 text-[13px] text-ink-2">
         Phí chỉ tính trên phần freelancer nhận. Tất cả số liệu là mô phỏng trong MVP.
       </p>
@@ -240,10 +240,10 @@ function FeeTable({ ws, ms, gross }: { ws: Workspace; ms: Milestone; gross: numb
               title={ws.milestones.some((m) => m.payout) ? "Gói phí đã chốt vì có milestone đã chi trả (mô phỏng)" : undefined}
               className={cx(
                 "rounded-xl p-3 text-left ring-1 transition-colors disabled:cursor-not-allowed",
-                active ? "bg-yellow/10 ring-yellow/60" : "bg-rail ring-line hover:ring-ink-2/40",
+                active ? "bg-white/8 ring-white/30" : "bg-white/[0.03] ring-transparent hover:ring-white/15",
               )}
             >
-              <p className={cx("text-sm font-bold", active ? "text-yellow" : "text-ink")}>
+              <p className="text-sm font-semibold text-ink">
                 {t} {t === "BASIC" ? "7%" : "10%"}
               </p>
               <p className="text-[11px] leading-tight text-muted">{FEE_LABEL[t]}</p>

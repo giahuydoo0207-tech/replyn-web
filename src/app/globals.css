@@ -23,10 +23,10 @@
   --link: #4aa3ff;
   --cyan: #5fd4e0;
 
-  --bubble-in: #1e2318;
-  --bubble-out: #5b4300;
-  --bubble-out-edge: rgb(255 211 61 / 0.35);
-  --system: #2a2103;
+  /* bubble dịu, không viền vàng — vàng chỉ còn là accent */
+  --bubble-in: #1d2019;
+  --bubble-out: #383223;
+  --notice: #1a1d16;
 }
 
 @theme inline {
@@ -50,7 +50,7 @@
   --color-cyan: var(--cyan);
   --color-bubble-in: var(--bubble-in);
   --color-bubble-out: var(--bubble-out);
-  --color-system: var(--system);
+  --color-notice: var(--notice);
   --font-sans: var(--font-inter);
 }
 
@@ -66,7 +66,7 @@ body {
   color-scheme: dark;
 }
 
-/* Nền khung chat: doodle line-icon mờ + vignette vàng tối */
+/* Nền khung chat: doodle line-icon trung tính, rất mờ */
 .chat-canvas {
   position: relative;
   background-color: var(--canvas);
@@ -79,7 +79,7 @@ body {
   z-index: -1;
   background-image: url("/pattern.svg");
   background-size: 300px 300px;
-  opacity: 0.07;
+  opacity: 0.045;
   pointer-events: none;
 }
 .chat-canvas::after {
@@ -87,9 +87,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background:
-    radial-gradient(ellipse 60% 45% at 85% 0%, rgb(255 211 61 / 0.07), transparent 70%),
-    radial-gradient(ellipse 50% 40% at 0% 100%, rgb(242 183 5 / 0.05), transparent 70%);
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, transparent 40%, rgb(0 0 0 / 0.35));
   pointer-events: none;
 }
 
@@ -126,7 +124,7 @@ body {
     box-shadow: 0 0 0 0 rgb(255 211 61 / 0);
   }
   30% {
-    box-shadow: 0 0 0 3px rgb(255 211 61 / 0.55);
+    box-shadow: 0 0 0 2px rgb(246 242 222 / 0.5);
   }
 }
 .flash {

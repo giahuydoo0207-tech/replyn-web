@@ -40,7 +40,7 @@ export function Avatar({
     <div
       className={cx(
         "grid shrink-0 place-items-center rounded-full font-semibold select-none",
-        ring && "ring-2 ring-yellow/70 ring-offset-2 ring-offset-sidebar",
+        ring && "ring-2 ring-white/15",
       )}
       style={{ width: size, height: size, background: bg, color: fg, fontSize: size * 0.36 }}
       aria-hidden
@@ -88,12 +88,27 @@ export const STATUS_TONE: Record<MilestoneStatus, Tone> = {
   split: "yellow",
 };
 
+const DOT: Record<Tone, string> = {
+  yellow: "bg-yellow",
+  amber: "bg-amber",
+  success: "bg-success",
+  danger: "bg-danger",
+  cyan: "bg-cyan",
+  muted: "bg-muted",
+};
+
+/** Pill trung tính + chấm màu: màu chỉ nằm ở chấm, không tô cả khối */
 export function StatusBadge({ status, className }: { status: MilestoneStatus; className?: string }) {
   return (
-    <Badge tone={STATUS_TONE[status]} className={className}>
-      <span className="size-1.5 rounded-full bg-current" />
+    <span
+      className={cx(
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white/6 px-2 py-0.5 text-xs font-medium text-ink-2",
+        className,
+      )}
+    >
+      <span className={cx("size-1.5 rounded-full", DOT[STATUS_TONE[status]])} />
       {STATUS_LABEL[status]}
-    </Badge>
+    </span>
   );
 }
 
@@ -124,8 +139,8 @@ export function IconButton({
 type BtnVariant = "primary" | "secondary" | "danger" | "ghost";
 const BTN: Record<BtnVariant, string> = {
   primary: "bg-yellow text-[#0B0D0A] hover:bg-[#ffdc5c] font-semibold",
-  secondary: "bg-elevated text-ink ring-1 ring-inset ring-line hover:bg-[#283020]",
-  danger: "bg-danger/15 text-danger ring-1 ring-inset ring-danger/40 hover:bg-danger/25",
+  secondary: "bg-white/6 text-ink hover:bg-white/10",
+  danger: "bg-white/6 text-[#ff8f8f] hover:bg-danger/15",
   ghost: "text-ink-2 hover:bg-white/6 hover:text-ink",
 };
 

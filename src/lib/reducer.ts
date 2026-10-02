@@ -13,7 +13,7 @@ import type {
   Workspace,
 } from "./types";
 
-export type PanelTab = "milestones" | "evidence" | "files" | "dispute";
+export type PanelTab = "overview" | "terms" | "milestones" | "files" | "evidence" | "dispute";
 export type ListFilter = "all" | "unread" | "replyn" | "review" | "dispute";
 
 export interface UiState {
@@ -68,6 +68,7 @@ export type Action =
       fromNova?: string;
       unread?: number;
     }
+  | { type: "LOCK_TERMS"; wsId: string }
   | { type: "FUND"; wsId: string; milestoneId: string }
   | { type: "SUBMIT"; wsId: string; milestoneId: string; file: NewFile; note: string }
   | { type: "REQUEST_REVISION"; wsId: string; milestoneId: string; note: string }
@@ -94,7 +95,7 @@ export const me = (s: AppState) => s.roleUser[s.role];
 
 export const STATUS_LABEL: Record<MilestoneStatus, string> = {
   awaiting_funding: "Chờ cấp vốn",
-  funded_sim: "Đã cấp vốn (mô phỏng)",
+  funded_sim: "Đã ký quỹ (mô phỏng)",
   submitted: "Đã nộp sản phẩm",
   in_review: "Đang chờ nghiệm thu",
   revision_requested: "Yêu cầu sửa",
@@ -239,7 +240,7 @@ export function reducer(state: AppState, action: Action): AppState {
           panelTab:
             conv?.workspaceId && state.ui.panelTab === "dispute" &&
             !state.workspaces[conv.workspaceId]?.disputes.length
-              ? "milestones"
+              ? "overview"
               : state.ui.panelTab,
         },
         conversations: conv
@@ -353,7 +354,7 @@ export function reducer(state: AppState, action: Action): AppState {
       };
       s = {
         ...s,
-        ui: { ...s.ui, panelTab: "milestones" },
+        ui: { ...s.ui, panelTab: "overview" },
       };
       return reducer(s, { type: "SELECT_CHAT", chatId: wsChatId(wsId) });
     }
@@ -376,7 +377,7 @@ export function reducer(state: AppState, action: Action): AppState {
         businessId: action.businessId,
         freelancerId: action.freelancerId,
         feeTier: action.feeTier,
-        termsLockedAt: s.clock,
+        termsLockedAt: null,
         milestones,
         attachments: [],
         submissions: [],
@@ -388,7 +389,7 @@ export function reducer(state: AppState, action: Action): AppState {
         kind: "replyn",
         title: action.title,
         subtitle: `${business.name} · ${s.users[action.freelancerId].name}`,
-        avatar: { initials: initials(action.title), bg: "#2A2103", fg: "#FFD33D" },
+        avatar: { initials: initials(action.title), bg: "#24271f", fg: "#E9E4CC" },
         memberIds: [action.businessId, action.freelancerId],
         unread: action.unread ?? 0,
         workspaceId: action.wsId,
@@ -403,48 +404,61 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId,
         senderId: SYSTEM_ID,
         kind: "system",
-        text: action.fromNova
-          ? "Workspace Replyn được tạo từ cuộc trò chuyện trên Nova Chat"
-          : "Workspace Replyn được tạo",
+        text: "Workspace Replyn được tạo",
       });
-      const total = milestones.reduce((a, m) => a + m.amount, 0);
-      const [s2, evId] = addEvidence(s1, action.wsId, {
-        type: "terms_locked",
+      let s3 = s1;
+      [s3] = addEvidence(s3, action.wsId, {
+        type: "workspace_created",
         actorId: SYSTEM_ID,
-        title: "Điều khoản đã khóa",
-        description: `${milestones.length} milestone · tổng ${total.toLocaleString("en-US")} USDC · ${
-          action.feeTier === "BASIC" ? "BASIC 7%" : "ADVANCED 10%"
-        } (mô phỏng). Hai bên đã xác nhận, không thể sửa đơn phương.`,
+        title: "Workspace được tạo",
+        description: action.fromNova
+          ? `Từ đề xuất trên Nova Chat · ${milestones.length} milestone, chờ hai bên khóa điều khoản`
+          : `${milestones.length} milestone, chờ hai bên khóa điều khoản`,
+        messageId: s3.messages[chatId][0].id,
       });
-      let s3 = s2;
-      [s3] = pushMessage(s3, {
-        chatId,
-        senderId: SYSTEM_ID,
-        kind: "system",
-        text: "Điều khoản đã khóa — mọi thay đổi cần cả hai bên đồng ý",
-        refs: { workspaceId: action.wsId, auditEventId: evId },
-      });
-      for (const m of milestones) {
+      for (const [i, m] of milestones.entries()) {
         [s3] = pushMessage(s3, {
           chatId,
           senderId: SYSTEM_ID,
           kind: "milestone",
+          link: "milestones",
+          text: `Milestone ${i + 1} · ${m.title} · ${m.amount.toLocaleString("en-US")} USDC đã được tạo`,
           refs: { workspaceId: action.wsId, milestoneId: m.id },
         });
       }
-      // gắn message cho sự kiện khóa điều khoản
-      const lastSystem = s3.messages[chatId][1];
-      s3 = updateWs(s3, action.wsId, (w) => ({
-        ...w,
-        evidence: w.evidence.map((e) => (e.id === evId ? { ...e, messageId: lastSystem.id } : e)),
-      }));
       return s3;
+    }
+
+    case "LOCK_TERMS": {
+      const w = state.workspaces[action.wsId];
+      if (!w || w.termsLockedAt) return state;
+      let s = tick(state);
+      s = updateWs(s, w.id, (x) => ({ ...x, termsLockedAt: s.clock }));
+      const [s1, msg] = pushMessage(s, {
+        chatId: wsChatId(w.id),
+        senderId: SYSTEM_ID,
+        kind: "system",
+        text: "Điều khoản đã khóa",
+        link: "terms",
+        refs: { workspaceId: w.id },
+      });
+      const total = w.milestones.reduce((a, m) => a + m.amount, 0);
+      const [s2] = addEvidence(s1, w.id, {
+        type: "terms_locked",
+        actorId: SYSTEM_ID,
+        title: "Điều khoản đã khóa",
+        description: `${w.milestones.length} milestone · tổng ${total.toLocaleString("en-US")} USDC · ${
+          w.feeTier === "BASIC" ? "BASIC 7%" : "ADVANCED 10%"
+        } (mô phỏng). Hai bên đã xác nhận, không thể sửa đơn phương.`,
+        messageId: msg.id,
+      });
+      return s2;
     }
 
     case "FUND": {
       const w = state.workspaces[action.wsId];
       const m = milestoneOf(state, action.wsId, action.milestoneId);
-      if (!w || !m || m.status !== "awaiting_funding") return state;
+      if (!w || !m || m.status !== "awaiting_funding" || !w.termsLockedAt) return state;
       let s = tick(state);
       s = patchMilestone(s, w.id, m.id, (x) => ({ ...x, status: "funded_sim" }));
       const [s1, msg] = pushMessage(s, {
@@ -452,13 +466,14 @@ export function reducer(state: AppState, action: Action): AppState {
         senderId: SYSTEM_ID,
         kind: "payment",
         text: "funded",
+        link: "milestones",
         refs: { workspaceId: w.id, milestoneId: m.id },
       });
       const [s2] = addEvidence(s1, w.id, {
         type: "funded",
         actorId: w.businessId,
         title: "Business đã kích hoạt ký quỹ mô phỏng",
-        description: `Milestone ${milestoneIndex(s1, w.id, m.id)} · ${m.amount.toLocaleString("en-US")} USDC — Đã cấp vốn (mô phỏng)`,
+        description: `Milestone ${milestoneIndex(s1, w.id, m.id)} · ${m.amount.toLocaleString("en-US")} USDC — Đã ký quỹ (mô phỏng)`,
         milestoneId: m.id,
         messageId: msg.id,
       });
@@ -481,6 +496,7 @@ export function reducer(state: AppState, action: Action): AppState {
         senderId: w.freelancerId,
         kind: "submission",
         text: action.note,
+        link: "files",
         refs: { workspaceId: w.id, milestoneId: m.id, submissionId: subId, attachmentId: att.id },
       });
       s = updateWs(s3, w.id, (x) => ({
@@ -530,7 +546,8 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId: wsChatId(w.id),
         senderId: SYSTEM_ID,
         kind: "system",
-        text: `Business yêu cầu sửa Milestone ${milestoneIndex(s, w.id, m.id)} · lượt ${m.revisionsUsed + 1}/${m.revisionLimit}`,
+        text: `${s.users[w.businessId].short} đã yêu cầu sửa Milestone ${milestoneIndex(s, w.id, m.id)} · lượt ${m.revisionsUsed + 1}/${m.revisionLimit}`,
+        link: "milestones",
         refs: { workspaceId: w.id, milestoneId: m.id },
       });
       const [s3] = addEvidence(s2, w.id, {
@@ -554,7 +571,8 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId: wsChatId(w.id),
         senderId: SYSTEM_ID,
         kind: "system",
-        text: `Business đã nghiệm thu Milestone ${milestoneIndex(s, w.id, m.id)} · Đủ điều kiện giải ngân`,
+        text: `${s.users[w.businessId].short} đã nghiệm thu Milestone ${milestoneIndex(s, w.id, m.id)} · Đủ điều kiện giải ngân`,
+        link: "milestones",
         refs: { workspaceId: w.id, milestoneId: m.id },
       });
       const [s2] = addEvidence(s1, w.id, {
@@ -580,12 +598,13 @@ export function reducer(state: AppState, action: Action): AppState {
         senderId: SYSTEM_ID,
         kind: "payment",
         text: "released",
+        link: "milestones",
         refs: { workspaceId: w.id, milestoneId: m.id },
       });
       const [s2] = addEvidence(s1, w.id, {
         type: "released",
         actorId: w.businessId,
-        title: "Đã giải ngân (mô phỏng)",
+        title: "Đã kích hoạt giải ngân mô phỏng",
         description: `Freelancer nhận dự kiến ${payout.freelancerNet} USDC · phí ${payout.fee} USDC (mô phỏng)`,
         milestoneId: m.id,
         messageId: msg.id,
@@ -604,6 +623,7 @@ export function reducer(state: AppState, action: Action): AppState {
         senderId: action.openedBy,
         kind: "dispute",
         text: action.reason,
+        link: "dispute",
         refs: { workspaceId: w.id, milestoneId: m.id, disputeId: dId },
       });
       s = updateWs(s1, w.id, (x) => ({
@@ -648,7 +668,8 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId: wsChatId(w.id),
         senderId: NOVA_TEAM_ID,
         kind: "system",
-        text: "Đội ngũ Nova đã nhận hồ sơ tranh chấp và đang review bằng chứng của hai bên",
+        text: `Đội ngũ Nova đang review tranh chấp Milestone ${milestoneIndex(s, w.id, d.milestoneId)}`,
+        link: "dispute",
         refs: { workspaceId: w.id, milestoneId: d.milestoneId, disputeId: d.id },
       });
       const [s2] = addEvidence(s1, w.id, {
@@ -680,6 +701,7 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId: wsChatId(w.id),
         senderId: NOVA_TEAM_ID,
         kind: "decision",
+        link: "evidence",
         refs: { workspaceId: w.id, milestoneId: m.id, disputeId: d.id },
       });
       const label =

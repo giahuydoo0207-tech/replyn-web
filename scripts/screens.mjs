@@ -46,7 +46,10 @@ const switchRole = async (label) => {
 await flow.getByRole("button", { name: "Thêm" }).click();
 await flow.getByRole("menuitem", { name: /Đề xuất Replyn/ }).click();
 await flow.getByRole("button", { name: /Mở Replyn/ }).click();
-await flow.getByRole("button", { name: "Cấp vốn (mô phỏng)" }).first().click();
+await flow.getByRole("button", { name: "Xem điều khoản" }).first().click();
+await flow.getByRole("button", { name: /^Hai bên xác nhận/ }).click();
+await flow.getByRole("tab", { name: "Milestones" }).click();
+await flow.getByRole("button", { name: "Ký quỹ (mô phỏng)" }).first().click();
 await switchRole("Freelancer");
 await flow.getByRole("button", { name: "Thêm" }).click();
 await flow.getByRole("menuitem", { name: /Nộp sản phẩm/ }).click();
@@ -59,6 +62,15 @@ await flow.waitForTimeout(400);
 const released = await flow.getByText("Đã giải ngân (mô phỏng)").count();
 if (!released) errors.push("Flow: không thấy trạng thái “Đã giải ngân (mô phỏng)”");
 await flow.screenshot({ path: `${OUT}/7-flow-released.png` });
+
+// rail: hover mở rộng dạng overlay, rồi ghim mở
+await flow.mouse.move(30, 300);
+await flow.waitForTimeout(500);
+await flow.screenshot({ path: `${OUT}/8-rail-hover.png` });
+await flow.getByRole("button", { name: "Ghim mở thanh bên" }).click();
+await flow.mouse.move(800, 450);
+await flow.waitForTimeout(500);
+await flow.screenshot({ path: `${OUT}/9-rail-pinned.png` });
 
 const mobile = await open({ width: 390, height: 844 });
 await mobile.screenshot({ path: `${OUT}/m1-list.png` });
