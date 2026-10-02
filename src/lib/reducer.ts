@@ -1,4 +1,5 @@
 import { computePayout } from "./fees";
+import { defaultTab } from "./protection";
 import type {
   Attachment,
   Conversation,
@@ -13,7 +14,7 @@ import type {
   Workspace,
 } from "./types";
 
-export type PanelTab = "overview" | "terms" | "milestones" | "files" | "evidence" | "dispute";
+export type PanelTab = "terms" | "milestones" | "files" | "evidence" | "dispute";
 export type ListFilter = "all" | "unread" | "replyn" | "review" | "dispute";
 
 export interface UiState {
@@ -237,10 +238,10 @@ export function reducer(state: AppState, action: Action): AppState {
         ui: {
           ...state.ui,
           activeChatId: id,
+          // mở workspace: panel tự chọn tab theo ngữ cảnh (tranh chấp mở → Tranh chấp, còn lại → Milestones)
           panelTab:
-            conv?.workspaceId && state.ui.panelTab === "dispute" &&
-            !state.workspaces[conv.workspaceId]?.disputes.length
-              ? "overview"
+            conv?.workspaceId && conv.id !== state.ui.activeChatId
+              ? defaultTab(state.workspaces[conv.workspaceId])
               : state.ui.panelTab,
         },
         conversations: conv
@@ -354,7 +355,7 @@ export function reducer(state: AppState, action: Action): AppState {
       };
       s = {
         ...s,
-        ui: { ...s.ui, panelTab: "overview" },
+        ui: { ...s.ui, panelTab: "milestones" },
       };
       return reducer(s, { type: "SELECT_CHAT", chatId: wsChatId(wsId) });
     }
@@ -422,7 +423,7 @@ export function reducer(state: AppState, action: Action): AppState {
           senderId: SYSTEM_ID,
           kind: "milestone",
           link: "milestones",
-          text: `Milestone ${i + 1} · ${m.title} · ${m.amount.toLocaleString("en-US")} USDC đã được tạo`,
+          text: `Milestone ${i + 1} · ${m.title} đã được tạo`,
           refs: { workspaceId: action.wsId, milestoneId: m.id },
         });
       }

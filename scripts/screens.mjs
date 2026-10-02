@@ -72,6 +72,17 @@ await flow.mouse.move(800, 450);
 await flow.waitForTimeout(500);
 await flow.screenshot({ path: `${OUT}/9-rail-pinned.png` });
 
+// ngữ cảnh tranh chấp: tab Tranh chấp lên đầu và được chọn, header có shortcut, rail có badge đỏ
+await flow.getByRole("button", { name: "Thu gọn thanh bên" }).click();
+await flow.getByRole("button", { name: /Bộ nhận diện Trà Mây/ }).first().click();
+await flow.waitForTimeout(300);
+const tabs = flow.getByRole("tablist", { name: "Chi tiết bảo vệ dự án" }).getByRole("tab");
+const firstTab = (await tabs.first().innerText()).trim();
+if (!firstTab.startsWith("Tranh chấp")) errors.push(`Context: tab đầu là "${firstTab}" thay vì Tranh chấp`);
+if ((await tabs.first().getAttribute("aria-selected")) !== "true") errors.push("Context: tab Tranh chấp chưa được chọn mặc định");
+if (!(await flow.getByRole("button", { name: /Xem tranh chấp/ }).first().isVisible())) errors.push("Context: thiếu shortcut Xem tranh chấp");
+await flow.screenshot({ path: `${OUT}/10-dispute-context.png` });
+
 const mobile = await open({ width: 390, height: 844 });
 await mobile.screenshot({ path: `${OUT}/m1-list.png` });
 await mobile.getByRole("button", { name: /Lê Minh Khoa/ }).first().click();

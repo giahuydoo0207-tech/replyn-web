@@ -222,7 +222,7 @@ export function initialState(): AppState {
     messages: buildMessages(),
     workspaces: {},
     looseFiles: {},
-    ui: { activeChatId: null, panelTab: "overview", panelOpen: true, filter: "all", flashId: null },
+    ui: { activeChatId: null, panelTab: "milestones", panelOpen: true, filter: "all", flashId: null },
   };
   for (const a of fillerActions) {
     // dispute id phụ thuộc seq, nên tra lại id thật trước khi dispatch
@@ -317,7 +317,7 @@ export function buildScene(n: number): AppState {
   }
   if (n >= 3) run({ type: "SELECT_CHAT", chatId: wsChatId(ws().id) });
   if (n === 5) run({ type: "SET_PANEL", tab: "dispute", open: true });
-  if (n === 3) run({ type: "SET_PANEL", tab: "overview", open: true });
+  if (n === 3) run({ type: "SET_PANEL", tab: "milestones", open: true });
   if (n === 4) run({ type: "SET_PANEL", tab: "files", open: true });
   return s;
 }

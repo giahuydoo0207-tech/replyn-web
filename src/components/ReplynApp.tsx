@@ -55,7 +55,7 @@ function Shell() {
       {/* Panel: cột cố định từ 1280px, drawer ở màn nhỏ hơn */}
       {panelVisible && (
         <>
-          <div className="hidden h-full w-[380px] shrink-0 xl:block 2xl:w-[400px]">
+          <div className="hidden h-full w-[400px] shrink-0 xl:block 2xl:w-[420px]">
             <RightPanel />
           </div>
           <div className="fixed inset-0 z-40 xl:hidden">

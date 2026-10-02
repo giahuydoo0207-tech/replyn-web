@@ -151,7 +151,7 @@ export interface Message {
   replyToId?: string;
   refs?: MessageRefs;
   /** tab của panel Replyn Protection mà notice trỏ tới */
-  link?: "overview" | "terms" | "milestones" | "files" | "evidence" | "dispute";
+  link?: "terms" | "milestones" | "files" | "evidence" | "dispute";
 }
 
 export type ProposalStatus = "pending" | "opened" | "later";

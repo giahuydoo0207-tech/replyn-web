@@ -76,16 +76,17 @@ export function Badge({ tone = "muted", children, className }: { tone?: Tone; ch
 }
 
 export const STATUS_TONE: Record<MilestoneStatus, Tone> = {
+  // cam = đang chờ xử lý, đỏ = tranh chấp, xanh = an toàn/đã xong; vàng chỉ dành cho brand
   awaiting_funding: "muted",
-  funded_sim: "yellow",
-  submitted: "cyan",
-  in_review: "cyan",
+  funded_sim: "success",
+  submitted: "amber",
+  in_review: "amber",
   revision_requested: "amber",
-  ready_to_release: "success",
+  ready_to_release: "amber",
   disputed: "danger",
   released_sim: "success",
-  refunded: "amber",
-  split: "yellow",
+  refunded: "muted",
+  split: "muted",
 };
 
 const DOT: Record<Tone, string> = {

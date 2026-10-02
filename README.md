@@ -12,6 +12,7 @@ Cấp vốn, giải ngân và phí vận hành đều là mô phỏng. Replyn kh
 cd D:\replyn-web
 npm install
 npm run dev          # http://localhost:3000
+npm run typecheck; npm run lint; npm run build
 ```
 
 Chụp màn hình các cảnh demo và chạy thử luồng chính (cần `npm run dev` đang chạy và Chrome đã cài):
@@ -24,7 +25,9 @@ $env:BASE_URL="http://localhost:3000"; npm run screens   # ảnh lưu ở ./scre
 
 - **Rail trái**: thu gọn 64px, hover thì giãn ra dạng overlay, ☰ để ghim mở. Label dùng `opacity` + `pointer-events`.
 - **Chat giữa**: chỉ có bubble, file preview gọn, và notice 1 dòng kèm link mở đúng tab bên phải. Không còn card nghiệp vụ.
-- **Replyn Protection (panel phải)**: Tổng quan · Điều khoản · Milestones · Files · Bằng chứng · Tranh chấp.
+- **Bảo vệ dự án (panel phải)**: Status Header cố định (dự án, tiền, hai bên, phí mô phỏng, *Việc cần làm*) + 5 tab chi tiết.
+  Mặc định mở *Milestones*; nếu có tranh chấp mở thì tab *Tranh chấp* tự lên đầu và được chọn, header giữa hiện *Xem tranh chấp*, rail có badge đỏ.
+  Badge chỉ dành cho việc cần làm: cam = chờ người xem xử lý, đỏ = tranh chấp.
 - **Màu**: vàng chỉ là accent (logo, nút hành động chính, chấm active). Còn lại dùng ngà/xám.
 
 ## Luồng demo
@@ -56,7 +59,8 @@ src/
     Rail.tsx           rail icon trái + menu Demo / đổi vai
     ChatList.tsx       search, filter chips, unread, badge trạng thái workspace
     chat/              ChatView (header + tagline, dòng ghim, composer), Messages (bubble + notice 1 dòng)
-    panel/             Replyn Protection: Tổng quan, Điều khoản, Milestones, Files, Bằng chứng, Tranh chấp
+    panel/             Bảo vệ dự án: StatusHeader + Điều khoản, Milestones, Files, Bằng chứng, Tranh chấp
+    (lib/protection.ts) thứ tự tab, tab mặc định, việc cần làm theo ngữ cảnh
     actions.tsx        dialog Nộp sản phẩm / Yêu cầu sửa / Mở tranh chấp
 public/pattern.svg     doodle line-icon cho nền chat (tự vẽ, không dùng asset WhatsApp/Telegram)
 ```

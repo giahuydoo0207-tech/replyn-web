@@ -53,7 +53,7 @@ export function Rail() {
   const { filter, panelTab, panelOpen } = state.ui;
   const panelActive = (t: string) => !!ws && panelOpen && panelTab === t;
 
-  const items: { id: string; label: string; icon: ReactNode; active: boolean; badge?: number; run: () => void }[] = [
+  const items: { id: string; label: string; icon: ReactNode; active: boolean; badge?: number; danger?: boolean; run: () => void }[] = [
     {
       id: "chats",
       label: "Chats",
@@ -89,6 +89,7 @@ export function Rail() {
       icon: <AlertTriangle size={21} />,
       active: filter === "dispute",
       badge: disputes,
+      danger: true,
       run: () => {
         dispatch({ type: "SET_FILTER", filter: "dispute" });
         if (ws?.disputes.length) dispatch({ type: "SET_PANEL", tab: "dispute", open: true });
@@ -129,7 +130,7 @@ export function Rail() {
         <ul className="flex flex-col gap-1">
           {items.map((it) => (
             <li key={it.id}>
-              <RailItem label={it.label} icon={it.icon} active={it.active} badge={it.badge} run={it.run} pinned={pinned} />
+              <RailItem label={it.label} icon={it.icon} active={it.active} badge={it.badge} danger={it.danger} run={it.run} pinned={pinned} />
             </li>
           ))}
         </ul>
@@ -193,6 +194,7 @@ function RailItem({
   icon,
   active,
   badge,
+  danger,
   pinned,
   run,
 }: {
@@ -200,6 +202,7 @@ function RailItem({
   icon: ReactNode;
   active: boolean;
   badge?: number;
+  danger?: boolean;
   pinned: boolean;
   run: () => void;
 }) {
@@ -218,7 +221,7 @@ function RailItem({
       <span className="relative grid w-12 shrink-0 place-items-center">
         {icon}
         {!!badge && (
-          <span className="absolute -top-1.5 right-1 min-w-[18px] rounded-full bg-ink px-1 text-center text-[10px] font-bold leading-[18px] text-app ring-2 ring-rail">
+          <span className={cx("absolute -top-1.5 right-1 min-w-[18px] rounded-full px-1 text-center text-[10px] font-bold leading-[18px] ring-2 ring-rail", danger ? "bg-danger text-white" : "bg-ink text-app")}>
             {badge > 99 ? "99+" : badge}
           </span>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CheckCheck, ChevronRight, Lock, ShieldCheck } from "lucide-react";
+import { ArrowRight, CheckCheck, Lock, ShieldCheck } from "lucide-react";
 import { Fragment } from "react";
 import { FEE_LABEL, usdc } from "@/lib/fees";
 import { dayKey, dayLabel, hhmm } from "@/lib/format";
@@ -16,9 +16,8 @@ const NOTICE_KINDS = ["system", "milestone", "payment", "dispute", "decision"];
 const isNotice = (m: Message) => NOTICE_KINDS.includes(m.kind) || m.senderId === SYSTEM_ID || m.senderId === NOVA_TEAM_ID;
 
 const LINK_LABEL: Record<PanelTab, string> = {
-  overview: "Xem tổng quan",
   terms: "Xem điều khoản",
-  milestones: "Xem trong Milestones",
+  milestones: "Xem milestones",
   files: "Xem file",
   evidence: "Xem bằng chứng",
   dispute: "Xem tranh chấp",
@@ -177,36 +176,38 @@ function Notice({ m, flash, anchor = true }: { m: Message; flash: boolean; ancho
   const danger = m.kind === "dispute";
   return (
     <div id={anchor ? `msg-${m.id}` : undefined} className="msg-in my-1 flex justify-center px-4">
+      {/* notice là một đoạn text inline nên xuống dòng tự nhiên, icon không bị tách dòng */}
       <p
         className={cx(
-          "inline-flex max-w-[600px] flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-lg bg-notice/95 px-3 py-1.5 text-center text-[13px] leading-snug text-ink-2 shadow-sm",
+          "max-w-[600px] rounded-lg bg-notice/95 px-3 py-1.5 text-center text-[13px] leading-snug text-ink-2 shadow-sm",
           flash && "flash",
         )}
       >
         {nova ? (
-          <ShieldCheck size={14} className="shrink-0 text-ink-2" />
+          <ShieldCheck size={14} className="mr-1.5 inline-block align-[-2px] text-ink-2" />
         ) : danger ? (
-          <span className="size-1.5 shrink-0 rounded-full bg-danger" />
+          <span className="mr-1.5 inline-block size-1.5 rounded-full bg-danger align-[2px]" />
         ) : m.link === "terms" ? (
-          <Lock size={13} className="shrink-0" />
+          <Lock size={13} className="mr-1.5 inline-block align-[-2px]" />
         ) : null}
         <span className="text-ink/90">{noticeText(state, m)}</span>
         {m.link && (
-          <button
-            type="button"
-            onClick={() => dispatch({ type: "SET_PANEL", tab: m.link, open: true })}
-            className="inline-flex items-center font-medium text-ink underline decoration-white/25 underline-offset-2 hover:decoration-white/70"
-          >
-            {LINK_LABEL[m.link]}
-            <ChevronRight size={13} />
-          </button>
+          <>
+            {" · "}
+            <button
+              type="button"
+              onClick={() => dispatch({ type: "SET_PANEL", tab: m.link, open: true })}
+              className="font-medium text-ink underline decoration-white/25 underline-offset-2 hover:decoration-white/70"
+            >
+              {LINK_LABEL[m.link]}
+            </button>
+          </>
         )}
-        <span className="text-[11px] text-muted">{hhmm(m.at)}</span>
+        <span className="ml-1.5 whitespace-nowrap text-[11px] text-muted">{hhmm(m.at)}</span>
       </p>
     </div>
   );
 }
-
 /* ---------- Proposal (Nova Chat) ---------- */
 
 function ProposalCard({ m }: { m: Message }) {

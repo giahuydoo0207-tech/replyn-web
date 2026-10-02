@@ -14,6 +14,9 @@ export function MilestonesTab({ ws }: { ws: Workspace }) {
       {ws.milestones.map((m, i) => (
         <MilestonePanelCard key={m.id} ws={ws} ms={m} idx={i + 1} />
       ))}
+      <p className="px-1 pt-1 text-xs leading-relaxed text-muted">
+        Phí vận hành được tính minh họa trong bản demo. Replyn chưa thu phí thật và không custody tiền thật.
+      </p>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertTriangle,
   ArrowLeft,
   ChevronRight,
   Image as ImageIcon,
@@ -20,6 +21,7 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { usdc } from "@/lib/fees";
 import { sha256Hex } from "@/lib/format";
+import { openDisputes } from "@/lib/protection";
 import { useActiveChat, useMe, useStore } from "@/lib/store";
 import type { Conversation, Workspace } from "@/lib/types";
 import { useWorkspaceActions } from "../actions";
@@ -152,6 +154,17 @@ function ChatHeader({ conv, ws, onBack }: { conv: Conversation; ws?: Workspace; 
         <IconButton label="Tìm trong cuộc trò chuyện" className="hidden sm:grid">
           <Search size={20} />
         </IconButton>
+        {ws && openDisputes(ws).length > 0 && (
+          <button
+            type="button"
+            onClick={() => dispatch({ type: "SET_PANEL", tab: "dispute", open: true })}
+            className="mr-1 inline-flex items-center gap-1.5 rounded-full bg-danger/12 px-2.5 py-1 text-[13px] font-medium text-[#ff9b9b] hover:bg-danger/20"
+            title="Xem tranh chấp"
+          >
+            <AlertTriangle size={14} />
+            <span className="hidden sm:inline">Xem tranh chấp</span>
+          </button>
+        )}
         {ws && (
           <>
             <IconButton
@@ -162,7 +175,7 @@ function ChatHeader({ conv, ws, onBack }: { conv: Conversation; ws?: Workspace; 
               <ShieldCheck size={20} />
             </IconButton>
             <IconButton
-              label={state.ui.panelOpen ? "Ẩn Replyn Protection" : "Hiện Replyn Protection"}
+              label={state.ui.panelOpen ? "Ẩn Bảo vệ dự án" : "Hiện Bảo vệ dự án"}
               active={state.ui.panelOpen}
               onClick={() => dispatch({ type: "SET_PANEL", open: !state.ui.panelOpen })}
             >
