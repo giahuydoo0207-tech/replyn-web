@@ -1,26 +1,141 @@
 @import "tailwindcss";
 
+/* Replyn design tokens — vàng / đen, bố cục màu kiểu WhatsApp dark */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --app: #070806;
+  --rail: #0b0d0a;
+  --sidebar: #11130f;
+  --canvas: #0a0c09;
+  --panel: #171a14;
+  --elevated: #202419;
+  --hover: #1a1d16;
+  --border: #303625;
+
+  --text: #f6f2de;
+  --text-2: #a6a58f;
+  --muted: #6f725e;
+
+  --yellow: #ffd33d;
+  --yellow-deep: #f2b705;
+  --amber: #ffb65c;
+  --success: #39d98a;
+  --danger: #ff6b6b;
+  --link: #4aa3ff;
+  --cyan: #5fd4e0;
+
+  --bubble-in: #1e2318;
+  --bubble-out: #5b4300;
+  --bubble-out-edge: rgb(255 211 61 / 0.35);
+  --system: #2a2103;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-app: var(--app);
+  --color-rail: var(--rail);
+  --color-sidebar: var(--sidebar);
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-elevated: var(--elevated);
+  --color-hover: var(--hover);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-ink-2: var(--text-2);
+  --color-muted: var(--muted);
+  --color-yellow: var(--yellow);
+  --color-yellow-deep: var(--yellow-deep);
+  --color-amber: var(--amber);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-link: var(--link);
+  --color-cyan: var(--cyan);
+  --color-bubble-in: var(--bubble-in);
+  --color-bubble-out: var(--bubble-out);
+  --color-system: var(--system);
+  --font-sans: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--app);
+  color: var(--text);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+/* Nền khung chat: doodle line-icon mờ + vignette vàng tối */
+.chat-canvas {
+  position: relative;
+  background-color: var(--canvas);
+  isolation: isolate;
+}
+.chat-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: url("/pattern.svg");
+  background-size: 300px 300px;
+  opacity: 0.07;
+  pointer-events: none;
+}
+.chat-canvas::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 60% 45% at 85% 0%, rgb(255 211 61 / 0.07), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 0% 100%, rgb(242 183 5 / 0.05), transparent 70%);
+  pointer-events: none;
+}
+
+/* Scrollbar mảnh kiểu Telegram */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #2c3122 transparent;
+}
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: #2c3122;
+  border-radius: 6px;
+}
+
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.msg-in {
+  animation: msg-in 0.22s ease-out both;
+}
+
+@keyframes flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(255 211 61 / 0);
+  }
+  30% {
+    box-shadow: 0 0 0 3px rgb(255 211 61 / 0.55);
+  }
+}
+.flash {
+  animation: flash 1.6s ease-in-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-in,
+  .flash {
+    animation: none;
+  }
 }

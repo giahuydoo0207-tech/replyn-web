@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300" fill="none" stroke="#FFD33D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <!-- document -->
+  <g transform="translate(18 16) rotate(-8 14 18)">
+    <path d="M4 2h16l8 8v26H4z"/><path d="M20 2v8h8"/><path d="M9 18h14M9 24h14M9 30h9"/>
+  </g>
+  <!-- lock -->
+  <g transform="translate(96 30) rotate(10 14 16)">
+    <rect x="3" y="14" width="22" height="17" rx="3"/><path d="M8 14V9a6 6 0 0 1 12 0v5"/><path d="M14 21v4"/>
+  </g>
+  <!-- milestone flag -->
+  <g transform="translate(176 12) rotate(-6 14 18)">
+    <path d="M5 34V3"/><path d="M5 4h20l-5 7 5 7H5"/>
+  </g>
+  <!-- shield check -->
+  <g transform="translate(244 40) rotate(8 15 17)">
+    <path d="M15 2 27 7v9c0 9-6 14-12 17C9 30 3 25 3 16V7z"/><path d="m9 17 4 4 8-8"/>
+  </g>
+  <!-- coin -->
+  <g transform="translate(40 92)">
+    <circle cx="14" cy="14" r="12"/><circle cx="14" cy="14" r="7.5"/><path d="M14 10v8"/>
+  </g>
+  <!-- chat bubble -->
+  <g transform="translate(118 104) rotate(-10 18 14)">
+    <path d="M4 4h30v20H16l-8 7v-7H4z"/><path d="M11 12h16M11 17h10"/>
+  </g>
+  <!-- check circle -->
+  <g transform="translate(206 100)">
+    <circle cx="14" cy="14" r="12"/><path d="m8 14 4 4 8-8"/>
+  </g>
+  <!-- paperclip -->
+  <g transform="translate(262 120) rotate(25 8 18)">
+    <path d="M14 10 6 18a4 4 0 0 0 6 6l10-10a7 7 0 0 0-10-10L2 14"/>
+  </g>
+  <!-- calendar / deadline -->
+  <g transform="translate(10 170) rotate(6 15 15)">
+    <rect x="2" y="5" width="26" height="23" rx="3"/><path d="M2 12h26M9 2v6M21 2v6"/><path d="M8 18h4M15 18h4M8 23h4"/>
+  </g>
+  <!-- handshake-ish: two arrows exchange -->
+  <g transform="translate(84 176) rotate(-4 16 12)">
+    <path d="M2 8h24l-5-5"/><path d="M30 18H6l5 5"/>
+  </g>
+  <!-- folder -->
+  <g transform="translate(150 168) rotate(8 16 13)">
+    <path d="M2 6a2 2 0 0 1 2-2h8l3 4h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/>
+  </g>
+  <!-- hash # -->
+  <g transform="translate(222 172) rotate(-12 12 12)">
+    <path d="M8 2 6 24M18 2l-2 22M2 9h22M1 17h22"/>
+  </g>
+  <!-- star -->
+  <g transform="translate(276 196) rotate(12 10 10)">
+    <path d="m10 1 2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z"/>
+  </g>
+  <!-- stamp / approved -->
+  <g transform="translate(36 238) rotate(-8 18 14)">
+    <rect x="2" y="2" width="32" height="22" rx="4"/><path d="M8 13h20M12 8h12M12 18h12"/>
+  </g>
+  <!-- clock -->
+  <g transform="translate(110 236)">
+    <circle cx="14" cy="14" r="12"/><path d="M14 7v7l5 3"/>
+  </g>
+  <!-- scale (dispute) -->
+  <g transform="translate(176 232) rotate(4 18 16)">
+    <path d="M18 3v28M8 31h20M4 9h28"/><path d="m4 9-4 9a5 5 0 0 0 8 0zM32 9l-4 9a5 5 0 0 0 8 0z"/>
+  </g>
+  <!-- upload -->
+  <g transform="translate(250 252) rotate(-10 14 14)">
+    <path d="M14 20V4M7 11l7-7 7 7"/><path d="M3 20v4a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-4"/>
+  </g>
+  <!-- dots -->
+  <circle cx="74" cy="58" r="1.6"/><circle cx="160" cy="70" r="1.6"/><circle cx="230" cy="150" r="1.6"/>
+  <circle cx="70" cy="150" r="1.6"/><circle cx="140" cy="290" r="1.6"/><circle cx="292" cy="90" r="1.6"/>
+</svg>
