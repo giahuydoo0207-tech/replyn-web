@@ -353,7 +353,7 @@ export function reducer(state: AppState, action: Action): AppState {
       };
       s = {
         ...s,
-        ui: { ...s.ui, panelTab: "milestones", panelOpen: true },
+        ui: { ...s.ui, panelTab: "milestones" },
       };
       return reducer(s, { type: "SELECT_CHAT", chatId: wsChatId(wsId) });
     }
@@ -451,6 +451,7 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId: wsChatId(w.id),
         senderId: SYSTEM_ID,
         kind: "payment",
+        text: "funded",
         refs: { workspaceId: w.id, milestoneId: m.id },
       });
       const [s2] = addEvidence(s1, w.id, {
@@ -498,7 +499,7 @@ export function reducer(state: AppState, action: Action): AppState {
         type: version === 1 ? "submitted" : "resubmitted",
         actorId: w.freelancerId,
         title: version === 1 ? "Freelancer đã nộp sản phẩm" : `Freelancer nộp lại (v${version})`,
-        description: `${att.name} · sha256 ${att.hash.slice(0, 10)}…`,
+        description: action.note,
         milestoneId: m.id,
         messageId: msg.id,
         attachmentId: att.id,
@@ -578,6 +579,7 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId: wsChatId(w.id),
         senderId: SYSTEM_ID,
         kind: "payment",
+        text: "released",
         refs: { workspaceId: w.id, milestoneId: m.id },
       });
       const [s2] = addEvidence(s1, w.id, {
@@ -718,30 +720,22 @@ export function splitRoles(s: AppState, memberIds: string[]): [string, string] {
   return [business, freelancer];
 }
 
+/** Tên Việt: lấy 2 từ cuối (Lê Minh Khoa -> MK, Mộc Coffee -> MC) */
 export function initials(name: string): string {
   return name
     .split(/\s+/)
     .filter(Boolean)
-    .slice(0, 2)
+    .slice(-2)
     .map((w) => w[0]!.toUpperCase())
     .join("");
 }
 
 /** Trạng thái nổi bật nhất của workspace để hiển thị badge ở chat list */
 export function workspaceHeadline(w: Workspace): MilestoneStatus | null {
-  const priority: MilestoneStatus[] = [
-    "disputed",
-    "in_review",
-    "revision_requested",
-    "ready_to_release",
-    "awaiting_funding",
-    "funded_sim",
-    "split",
-    "refunded",
-    "released_sim",
-  ];
-  for (const p of priority) if (w.milestones.some((m) => m.status === p)) return p;
-  return null;
+  if (w.milestones.some((m) => m.status === "disputed")) return "disputed";
+  const closed: MilestoneStatus[] = ["released_sim", "refunded", "split"];
+  const active = w.milestones.find((m) => !closed.includes(m.status));
+  return (active ?? w.milestones.at(-1))?.status ?? null;
 }
 
 export function findAttachment(s: AppState, id: string | undefined): Attachment | undefined {

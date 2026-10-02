@@ -29,6 +29,7 @@ const conversations: Record<string, Conversation> = {
     avatar: av("MK", "#123b40", "#5FD4E0"),
     memberIds: ["u-ha", "u-khoa"],
     unread: 0,
+    pinned: true,
     proposal: {
       projectTitle: "Landing page Mộc Coffee",
       feeTier: "BASIC",
