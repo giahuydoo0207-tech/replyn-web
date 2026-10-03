@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle, X } from "lucide-react";
 import { milestonesNeedingMe, openDisputes } from "@/lib/protection";
 import { useActiveChat, useMe, useStore } from "@/lib/store";
 import { PROJECT_TOOLS } from "../projectTools";
@@ -33,13 +33,22 @@ export function RightPanel({ onBack }: { onBack: () => void }) {
   return (
     <section aria-label={`Công cụ dự án: ${ws.title}`} className="flex h-full min-w-0 flex-1 flex-col bg-app">
       <header className="flex h-[60px] shrink-0 items-center gap-3 border-b border-line bg-sidebar px-3 sm:px-4">
-        <IconButton label="Quay lại cuộc trò chuyện" onClick={onBack}><ArrowLeft size={20} /></IconButton>
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg px-2 text-sm font-medium text-ink-2 hover:bg-white/8 hover:text-ink sm:px-3"
+          aria-label="Quay lại cuộc trò chuyện"
+        >
+          <ArrowLeft size={19} />
+          <span className="hidden sm:inline">Về chat</span>
+        </button>
         <Avatar {...conv.avatar} size={38} />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[16px] font-semibold">{ws.title}</h1>
           <p className="truncate text-[13px] text-muted">Công cụ dự án · {current.label}</p>
         </div>
         <span className="hidden rounded bg-white/6 px-2 py-1 text-xs text-muted sm:inline">Mô phỏng</span>
+        <IconButton label="Đóng công cụ dự án" onClick={onBack}><X size={20} /></IconButton>
       </header>
 
       <nav aria-label="Các mục dự án" className="flex shrink-0 overflow-x-auto border-b border-line bg-sidebar px-2 [scrollbar-width:none] sm:px-4">
