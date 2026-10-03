@@ -133,8 +133,10 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
 /* ---------- Header ---------- */
 
 function ChatHeader({ conv, ws, onBack, onSearch }: { conv: Conversation; ws?: Workspace; onBack?: () => void; onSearch: () => void }) {
+  const { state, dispatch } = useStore();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const sourceChat = conv.sourceNovaChatId ? state.conversations[conv.sourceNovaChatId] : undefined;
 
   useEffect(() => {
     if (!menu) return;
@@ -158,13 +160,25 @@ function ChatHeader({ conv, ws, onBack, onSearch }: { conv: Conversation; ws?: W
           )}
         </h2>
         {/* tagline: vị trí thứ 2 (cùng proposal card) */}
-        <p className="truncate text-[13px] text-muted">
-          {ws
-            ? "Nova giúp hai bên gặp nhau. Replyn giúp hai bên tin nhau để làm việc."
-            : conv.kind === "nova"
-              ? "vừa truy cập"
-              : conv.subtitle}
-        </p>
+        {sourceChat ? (
+          <button
+            type="button"
+            onClick={() => dispatch({ type: "SELECT_CHAT", chatId: sourceChat.id })}
+            className="flex max-w-full items-center gap-1 truncate text-[13px] font-medium text-link hover:underline"
+            aria-label={`Quay lại Nova Chat với ${sourceChat.title}`}
+          >
+            <ArrowLeft size={13} className="shrink-0" />
+            <span className="truncate">Quay lại Nova Chat với {sourceChat.title}</span>
+          </button>
+        ) : (
+          <p className="truncate text-[13px] text-muted">
+            {ws
+              ? "Nova giúp hai bên gặp nhau. Replyn giúp hai bên tin nhau để làm việc."
+              : conv.kind === "nova"
+                ? "vừa truy cập"
+                : conv.subtitle}
+          </p>
+        )}
       </div>
       <div className="relative flex shrink-0 items-center gap-0.5" ref={menuRef}>
         <IconButton label="Tìm trong cuộc trò chuyện" className="hidden sm:grid" onClick={onSearch}>

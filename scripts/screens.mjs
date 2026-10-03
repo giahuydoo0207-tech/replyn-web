@@ -67,6 +67,10 @@ try {
   await flow.getByRole("button", { name: "Thêm", exact: true }).click();
   await flow.getByRole("menuitem", { name: /Đề xuất Replyn/ }).click();
   await flow.getByRole("button", { name: "Mở Replyn", exact: true }).click();
+  const backToNova = flow.getByRole("button", { name: "Quay lại Nova Chat với Lê Minh Khoa", exact: true });
+  await backToNova.click();
+  assert.ok(await flow.getByRole("region", { name: "Trò chuyện: Lê Minh Khoa" }).isVisible(), "Replyn workspace returns to its source Nova Chat");
+  await flow.getByRole("button", { name: "Vào workspace", exact: true }).click();
   const proposalMenu = await openOptions(flow);
   await proposalMenu.getByRole("menuitem", { name: /Xem thỏa thuận/ }).click();
   await flow.getByRole("button", { name: /^Hai bên xác nhận/ }).click();

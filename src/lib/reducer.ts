@@ -421,6 +421,7 @@ export function reducer(state: AppState, action: Action): AppState {
         memberIds: [action.businessId, action.freelancerId],
         unread: action.unread ?? 0,
         workspaceId: action.wsId,
+        sourceNovaChatId: action.fromNova,
       };
       let s1: AppState = {
         ...s,

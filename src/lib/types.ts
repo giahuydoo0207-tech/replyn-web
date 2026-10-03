@@ -177,4 +177,6 @@ export interface Conversation {
   proposalStatus?: ProposalStatus;
   proposalMessageId?: string;
   linkedWorkspaceChatId?: string;
+  /** Nova Chat đã tạo ra workspace này, dùng để quay lại đúng cuộc phỏng vấn ban đầu. */
+  sourceNovaChatId?: string;
 }
