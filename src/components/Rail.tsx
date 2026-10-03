@@ -8,6 +8,7 @@ import {
   Menu,
   MessageCircle,
   RotateCcw,
+  X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { initials, visibleTo } from "@/lib/reducer";
@@ -29,7 +30,8 @@ export function Rail() {
   const { state, dispatch } = useStore();
   const meId = useMe();
   const user = state.users[meId];
-  const pinned = false;
+  const [hovered, setHovered] = useState(false);
+  const [suppressHover, setSuppressHover] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -51,6 +53,7 @@ export function Rail() {
   }).length;
 
   const { filter, panelOpen } = state.ui;
+  const expanded = hovered && !suppressHover;
 
   const items: { id: string; label: string; icon: ReactNode; active: boolean; badge?: number; danger?: boolean; run: () => void }[] = [
     {
@@ -88,13 +91,18 @@ export function Rail() {
   return (
     <div
       className="relative z-30 h-full shrink-0 transition-[width] duration-300 ease-out"
-      style={{ width: pinned ? EXPANDED : COLLAPSED }}
+      style={{ width: COLLAPSED }}
     >
       <nav
         aria-label="Điều hướng chính"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => {
+          setHovered(false);
+          setSuppressHover(false);
+        }}
         className={cx(
           "group/rail absolute inset-y-0 left-0 flex flex-col overflow-hidden border-r border-white/5 bg-rail py-3 transition-[width,box-shadow] duration-300 ease-out",
-          "w-16 hover:w-[224px] has-[:focus-visible]:w-[224px] hover:shadow-[8px_0_24px_rgb(0_0_0/0.45)]",
+          expanded ? "w-[224px] shadow-[8px_0_24px_rgb(0_0_0/0.45)]" : "w-16",
         )}
       >
         {/* hàng đầu: ☰ + thương hiệu */}
@@ -110,16 +118,28 @@ export function Rail() {
           >
             <Menu size={22} />
           </button>
-          <Label pinned={pinned} className="flex items-center gap-2 pl-1">
+          <Label pinned={expanded} className="flex min-w-0 flex-1 items-center gap-2 pl-1">
             <ReplynMark size={26} />
             <span className="text-[17px] font-bold">Replyn</span>
           </Label>
+          <button
+            type="button"
+            aria-label="Đóng thanh bên"
+            title="Đóng thanh bên"
+            onClick={() => setSuppressHover(true)}
+            className={cx(
+              "grid size-9 shrink-0 place-items-center rounded-full text-ink-2 transition-[opacity,background-color] hover:bg-white/8 hover:text-ink focus-visible:outline-2 focus-visible:outline-white/40",
+              expanded ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+            )}
+          >
+            <X size={19} />
+          </button>
         </div>
 
         <ul className="flex flex-col gap-1">
           {items.map((it) => (
             <li key={it.id}>
-              <RailItem label={it.label} icon={it.icon} active={it.active} badge={it.badge} danger={it.danger} run={it.run} pinned={pinned} />
+              <RailItem label={it.label} icon={it.icon} active={it.active} badge={it.badge} danger={it.danger} run={it.run} pinned={expanded} />
             </li>
           ))}
         </ul>
@@ -129,7 +149,7 @@ export function Rail() {
             label="Demo"
             icon={<Clapperboard size={21} />}
             active={menu}
-            pinned={pinned}
+            pinned={expanded}
             run={() => setMenu((v) => !v)}
           />
           <button
@@ -141,7 +161,7 @@ export function Rail() {
             <span className="grid w-12 shrink-0 place-items-center">
               <Avatar initials={initials(user.name)} bg="#233138" fg={user.color} size={34} ring />
             </span>
-            <Label pinned={pinned} className="min-w-0 text-left">
+            <Label pinned={expanded} className="min-w-0 text-left">
               <span className="block truncate text-sm font-medium">{user.name}</span>
               <span className="block text-xs text-muted">{state.role === "business" ? "Business" : "Freelancer"}</span>
             </Label>

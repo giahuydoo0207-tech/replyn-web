@@ -37,6 +37,9 @@ try {
   await page.waitForTimeout(350);
   assert.ok((await rail.boundingBox()).width > 200, "Rail expands on hover");
   assert.equal((await page.getByRole("region", { name: /Trò chuyện:/ }).boundingBox()).x, chatBefore.x, "Hover must not move chat");
+  await rail.getByRole("button", { name: "Đóng thanh bên", exact: true }).click();
+  await page.waitForTimeout(350);
+  assert.equal(Math.round((await rail.boundingBox()).width), 64, "Close button collapses rail while pointer remains inside");
   await page.mouse.move(800, 500);
   await page.waitForTimeout(350);
   assert.equal(Math.round((await rail.boundingBox()).width), 64, "Rail collapses automatically");
