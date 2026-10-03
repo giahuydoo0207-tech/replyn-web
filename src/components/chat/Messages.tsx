@@ -250,16 +250,18 @@ function ProposalCard({ m }: { m: Message }) {
             {statusLabel}
           </span>
         </div>
-        <div className="flex gap-2">
-          <Button variant="primary" className="flex-1" onClick={() => dispatch({ type: "OPEN_REPLYN", chatId: conv.id })}>
-            {status === "opened" ? "Vào workspace" : "Mở Replyn"} <ArrowRight size={16} />
-          </Button>
-          {status === "pending" && (
-            <Button variant="secondary" onClick={() => dispatch({ type: "PROPOSAL_LATER", chatId: conv.id })}>
-              Để sau
+        {status !== "opened" && (
+          <div className="flex gap-2">
+            <Button variant="primary" className="flex-1" onClick={() => dispatch({ type: "OPEN_REPLYN", chatId: conv.id })}>
+              Mở Replyn <ArrowRight size={16} />
             </Button>
-          )}
-        </div>
+            {status === "pending" && (
+              <Button variant="secondary" onClick={() => dispatch({ type: "PROPOSAL_LATER", chatId: conv.id })}>
+                Để sau
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -120,6 +120,94 @@ body {
   animation: msg-in 0.22s ease-out both;
 }
 
+/* Chuyển giữa hội thoại và hồ sơ như thao tác mở một bìa tài liệu văn phòng. */
+@keyframes workspace-switch-layer {
+  0% { opacity: 0; }
+  18%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes workspace-switch-folder {
+  0% { opacity: 0; transform: translateY(22px) scale(0.94); }
+  34%, 72% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-12px) scale(0.98); }
+}
+@keyframes workspace-switch-sheet {
+  0%, 18% { transform: translateY(30px); }
+  48%, 70% { transform: translateY(-18px); }
+  100% { transform: translateY(10px); }
+}
+@keyframes workspace-switch-cover {
+  0%, 20% { transform: perspective(700px) rotateX(0deg); }
+  46% { transform: perspective(700px) rotateX(-18deg); }
+  72%, 100% { transform: perspective(700px) rotateX(0deg); }
+}
+.workspace-switch {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: rgb(11 20 26 / 0.78);
+  backdrop-filter: blur(2px);
+  animation: workspace-switch-layer 0.56s ease-in-out both;
+}
+.workspace-switch__folder {
+  position: relative;
+  width: 280px;
+  height: 184px;
+  transform-origin: center bottom;
+  animation: workspace-switch-folder 0.56s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.workspace-switch__sheet {
+  position: absolute;
+  left: 32px;
+  right: 32px;
+  top: 10px;
+  height: 142px;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: 6px;
+  background: #dfe6e9;
+  animation: workspace-switch-sheet 0.56s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.workspace-switch__sheet--back {
+  left: 48px;
+  right: 18px;
+  top: 18px;
+  background: #aebac1;
+  animation-delay: 35ms;
+}
+.workspace-switch__sheet--front {
+  z-index: 1;
+}
+.workspace-switch__lines {
+  display: block;
+  width: 62%;
+  height: 52px;
+  margin: 30px 0 0 24px;
+  border-top: 5px solid #8696a0;
+  border-bottom: 5px solid #8696a0;
+  box-shadow: 0 12px 0 #8696a0;
+}
+.workspace-switch__cover {
+  position: absolute;
+  inset: 58px 0 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 8px;
+  background: var(--elevated);
+  color: var(--text);
+  box-shadow: 0 22px 50px rgb(0 0 0 / 0.38);
+  font-size: 16px;
+  font-weight: 650;
+  transform-origin: center bottom;
+  animation: workspace-switch-cover 0.56s ease-in-out both;
+}
+
 @keyframes flash {
   0%,
   100% {
@@ -135,7 +223,11 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .msg-in,
-  .flash {
+  .flash,
+  .workspace-switch,
+  .workspace-switch__folder,
+  .workspace-switch__sheet,
+  .workspace-switch__cover {
     animation: none;
   }
 }

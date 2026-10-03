@@ -40,17 +40,20 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
     return pinnedFirst.filter((id) => {
       if (!visibleTo(state, id)) return false;
       const c = state.conversations[id];
-      const ws = c.workspaceId ? state.workspaces[c.workspaceId] : undefined;
-      const msgs = state.messages[id] ?? [];
+      if (c.kind === "replyn" && c.sourceNovaChatId) return false;
+      const linked = c.linkedWorkspaceChatId ? state.conversations[c.linkedWorkspaceChatId] : undefined;
+      const wsId = c.workspaceId ?? linked?.workspaceId;
+      const ws = wsId ? state.workspaces[wsId] : undefined;
+      const msgs = [...(state.messages[id] ?? []), ...(linked ? state.messages[linked.id] ?? [] : [])];
       if (needle) {
         const hay = (c.title + " " + msgs.map((m) => m.text ?? "").join(" ")).toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       switch (filter) {
         case "unread":
-          return c.unread > 0;
+          return c.unread + (linked?.unread ?? 0) > 0;
         case "replyn":
-          return c.kind === "replyn";
+          return c.kind === "replyn" || !!linked;
         case "tasks":
           return !!ws && (milestonesNeedingMe(ws, meId).length > 0 || openDisputes(ws).length > 0 || !ws.termsLockedAt);
         case "files":
@@ -66,7 +69,13 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
   }, [state, q, filter, meId]);
 
   const count = (f: ListFilter) =>
-    f === "unread" ? state.order.filter((id) => visibleTo(state, id) && state.conversations[id].unread > 0).length : 0;
+    f === "unread" ? state.order.filter((id) => {
+      if (!visibleTo(state, id)) return false;
+      const c = state.conversations[id];
+      if (c.kind === "replyn" && c.sourceNovaChatId) return false;
+      const linkedUnread = c.linkedWorkspaceChatId ? state.conversations[c.linkedWorkspaceChatId]?.unread ?? 0 : 0;
+      return c.unread + linkedUnread > 0;
+    }).length : 0;
 
   return (
     <section aria-label="Danh sách trò chuyện" className="flex h-full min-w-0 flex-col bg-sidebar">
@@ -126,11 +135,14 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
         )}
         {items.map((id) => {
           const c = state.conversations[id];
-          const msgs = state.messages[id] ?? [];
+          const linked = c.linkedWorkspaceChatId ? state.conversations[c.linkedWorkspaceChatId] : undefined;
+          const msgs = [...(state.messages[id] ?? []), ...(linked ? state.messages[linked.id] ?? [] : [])].sort((a, b) => a.at - b.at);
           const last = msgs.at(-1);
-          const ws = c.workspaceId ? state.workspaces[c.workspaceId] : undefined;
+          const wsId = c.workspaceId ?? linked?.workspaceId;
+          const ws = wsId ? state.workspaces[wsId] : undefined;
           const headline = ws ? workspaceHeadline(ws) : null;
-          const active = id === activeChatId;
+          const active = id === activeChatId || linked?.id === activeChatId;
+          const unread = c.unread + (linked?.unread ?? 0);
           const mine = last?.senderId === meId;
           const showSender =
             last && !mine && last.senderId !== SYSTEM_ID && (c.kind === "group" || c.kind === "replyn");
@@ -157,7 +169,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
                     <span
                       className={cx(
                         "ml-auto shrink-0 pl-2 text-xs",
-                        c.unread > 0 ? "font-medium text-ink" : "text-muted",
+                        unread > 0 ? "font-medium text-ink" : "text-muted",
                       )}
                     >
                       {last && listTime(last.at, state.clock)}
@@ -171,15 +183,15 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
                     </p>
                     <span className="ml-auto flex shrink-0 items-center gap-1 pl-1">
                       {c.muted && <BellOff size={14} className="text-muted" aria-label="Đã tắt thông báo" />}
-                      {c.pinned && !c.unread && <Pin size={14} className="rotate-45 text-muted" aria-label="Đã ghim" />}
-                      {c.unread > 0 && (
+                      {c.pinned && !unread && <Pin size={14} className="rotate-45 text-muted" aria-label="Đã ghim" />}
+                      {unread > 0 && (
                         <span
                           className={cx(
                             "min-w-[22px] rounded-full px-1.5 text-center text-xs font-bold leading-[22px]",
                             c.muted ? "bg-white/12 text-ink-2" : "bg-ink text-app",
                           )}
                         >
-                          {c.unread}
+                          {unread}
                         </span>
                       )}
                     </span>

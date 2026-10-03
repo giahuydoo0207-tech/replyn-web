@@ -5,6 +5,7 @@ import {
   Bell,
   BellOff,
   ChevronRight,
+  Files,
   Image as ImageIcon,
   Lock,
   MoreVertical,
@@ -38,6 +39,10 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
   const [dragging, setDragging] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [modeTransition, setModeTransition] = useState<"workspace" | "chat" | null>(null);
+  const modeTimers = useRef<number[]>([]);
+
+  useEffect(() => () => modeTimers.current.forEach(window.clearTimeout), []);
 
   // vào chat: nhảy xuống cuối ngay lập tức
   useLayoutEffect(() => {
@@ -60,6 +65,21 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
   const shownMessages = searchQuery.trim()
     ? messages.filter((m) => (m.text ?? "").toLowerCase().includes(searchQuery.trim().toLowerCase()))
     : messages;
+  const sourceChat = conv.sourceNovaChatId ? state.conversations[conv.sourceNovaChatId] : undefined;
+  const workspaceChat = !ws && conv.proposalStatus === "opened" && conv.linkedWorkspaceChatId
+    ? state.conversations[conv.linkedWorkspaceChatId]
+    : undefined;
+  const pairedChat = sourceChat ?? workspaceChat;
+
+  const switchConversationMode = () => {
+    if (!pairedChat || modeTransition) return;
+    const target = ws ? "chat" : "workspace";
+    setSearchOpen(false);
+    setSearchQuery("");
+    setModeTransition(target);
+    modeTimers.current.push(window.setTimeout(() => dispatch({ type: "SELECT_CHAT", chatId: pairedChat.id }), 210));
+    modeTimers.current.push(window.setTimeout(() => setModeTransition(null), 560));
+  };
 
   const onDropFile = async (file: File) => {
     if (ws && canSubmit && submittable) {
@@ -75,8 +95,8 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
   };
 
   return (
-    <section aria-label={`Trò chuyện: ${conv.title}`} className="flex h-full min-w-0 flex-1 flex-col bg-canvas">
-      <ChatHeader conv={conv} ws={ws} onBack={onBack} onSearch={() => setSearchOpen((v) => !v)} />
+    <section aria-label={`Trò chuyện: ${sourceChat?.title ?? conv.title}`} className="relative isolate flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
+      <ChatHeader conv={conv} ws={ws} onBack={onBack} onSearch={() => setSearchOpen((v) => !v)} onModeSwitch={pairedChat ? switchConversationMode : undefined} />
       {searchOpen && <ChatSearch value={searchQuery} onChange={setSearchQuery} count={shownMessages.length} onClose={() => { setSearchOpen(false); setSearchQuery(""); }} />}
       {ws && <ProjectTaskBar ws={ws} />}
       {conv.id === "nova-khoa" && !conv.proposalStatus && <NudgeBar conv={conv} />}
@@ -126,17 +146,20 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
       </div>
 
       <Composer conv={conv} ws={ws} canSubmit={canSubmit} onFile={onDropFile} onSubmitWork={() => ws && submittable && dialogs.submit({ wsId: ws.id, milestoneId: submittable.id })} />
+      {modeTransition && <WorkspaceModeTransition target={modeTransition} />}
     </section>
   );
 }
 
 /* ---------- Header ---------- */
 
-function ChatHeader({ conv, ws, onBack, onSearch }: { conv: Conversation; ws?: Workspace; onBack?: () => void; onSearch: () => void }) {
-  const { state, dispatch } = useStore();
+function ChatHeader({ conv, ws, onBack, onSearch, onModeSwitch }: { conv: Conversation; ws?: Workspace; onBack?: () => void; onSearch: () => void; onModeSwitch?: () => void }) {
+  const { state } = useStore();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const sourceChat = conv.sourceNovaChatId ? state.conversations[conv.sourceNovaChatId] : undefined;
+  const linkedWorkspace = conv.linkedWorkspaceChatId ? state.conversations[conv.linkedWorkspaceChatId] : undefined;
+  const displayConv = sourceChat ?? conv;
 
   useEffect(() => {
     if (!menu) return;
@@ -151,45 +174,56 @@ function ChatHeader({ conv, ws, onBack, onSearch }: { conv: Conversation; ws?: W
           <ArrowLeft size={20} />
         </IconButton>
       )}
-      <Avatar {...conv.avatar} size={40} />
+      <Avatar {...displayConv.avatar} size={40} />
       <div className="min-w-0 flex-1">
         <h2 className="flex items-center gap-2 text-[16px] font-semibold leading-tight">
-          <span className="truncate">{conv.title}</span>
-          {conv.kind === "nova" && (
-            <span className="hidden shrink-0 rounded bg-white/6 px-1.5 text-[11px] font-medium text-ink-2 sm:inline">Nova Chat</span>
+          <span className="truncate">{displayConv.title}</span>
+          {(sourceChat || linkedWorkspace || conv.kind === "nova") && (
+            <span className="hidden shrink-0 rounded bg-white/6 px-1.5 text-[11px] font-medium text-ink-2 sm:inline">
+              {ws ? "Hồ sơ công việc" : linkedWorkspace ? "Hội thoại" : "Nova Chat"}
+            </span>
           )}
         </h2>
-        {/* tagline: vị trí thứ 2 (cùng proposal card) */}
-        {sourceChat ? (
-          <button
-            type="button"
-            onClick={() => dispatch({ type: "SELECT_CHAT", chatId: sourceChat.id })}
-            className="flex max-w-full items-center gap-1 truncate text-[13px] font-medium text-link hover:underline"
-            aria-label={`Quay lại Nova Chat với ${sourceChat.title}`}
-          >
-            <ArrowLeft size={13} className="shrink-0" />
-            <span className="truncate">Quay lại Nova Chat với {sourceChat.title}</span>
-          </button>
-        ) : (
-          <p className="truncate text-[13px] text-muted">
-            {ws
-              ? "Nova giúp hai bên gặp nhau. Replyn giúp hai bên tin nhau để làm việc."
-              : conv.kind === "nova"
-                ? "vừa truy cập"
-                : conv.subtitle}
-          </p>
-        )}
+        <p className="truncate text-[13px] text-muted">
+          {ws ? ws.title : linkedWorkspace?.workspaceId ? `Dự án · ${state.workspaces[linkedWorkspace.workspaceId]?.title ?? linkedWorkspace.title}` : conv.kind === "nova" ? "vừa truy cập" : conv.subtitle}
+        </p>
       </div>
       <div className="relative flex shrink-0 items-center gap-0.5" ref={menuRef}>
         <IconButton label="Tìm trong cuộc trò chuyện" className="hidden sm:grid" onClick={onSearch}>
           <Search size={20} />
         </IconButton>
+        {onModeSwitch && (
+          <IconButton
+            label={ws ? "Về hội thoại" : "Mở hồ sơ công việc"}
+            aria-pressed={!!ws}
+            onClick={onModeSwitch}
+          >
+            <Files size={20} />
+          </IconButton>
+        )}
         <IconButton label="Tùy chọn" active={menu} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
           <MoreVertical size={20} />
         </IconButton>
         {menu && <ConversationMenu conv={conv} ws={ws} onSearch={onSearch} onClose={() => setMenu(false)} />}
       </div>
     </header>
+  );
+}
+
+function WorkspaceModeTransition({ target }: { target: "workspace" | "chat" }) {
+  return (
+    <div className="workspace-switch" aria-hidden>
+      <div className="workspace-switch__folder">
+        <div className="workspace-switch__sheet workspace-switch__sheet--back" />
+        <div className="workspace-switch__sheet workspace-switch__sheet--front">
+          <span className="workspace-switch__lines" />
+        </div>
+        <div className="workspace-switch__cover">
+          <Files size={30} />
+          <span>{target === "workspace" ? "Mở hồ sơ công việc" : "Trở lại hội thoại"}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
