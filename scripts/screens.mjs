@@ -70,11 +70,11 @@ try {
   assert.equal(await flow.getByRole("button", { name: /Landing page Mộc Coffee/ }).count(), 0, "Linked workspace must not create a second chat-list item");
   await shot(flow, "merged-workspace-mode");
   await flow.getByRole("button", { name: "Về hội thoại", exact: true }).click();
-  await flow.waitForTimeout(650);
+  await flow.waitForTimeout(850);
   assert.ok(await flow.getByRole("region", { name: "Trò chuyện: Lê Minh Khoa" }).isVisible(), "Workspace returns to the same conversation");
   await shot(flow, "merged-chat-mode");
   await flow.getByRole("button", { name: "Mở hồ sơ công việc", exact: true }).click();
-  await flow.waitForTimeout(650);
+  await flow.waitForTimeout(850);
   const proposalMenu = await openOptions(flow);
   await proposalMenu.getByRole("menuitem", { name: /Xem thỏa thuận/ }).click();
   await flow.getByRole("button", { name: /^Hai bên xác nhận/ }).click();

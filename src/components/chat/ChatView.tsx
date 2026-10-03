@@ -5,8 +5,8 @@ import {
   Bell,
   BellOff,
   ChevronRight,
-  Files,
   Image as ImageIcon,
+  LibraryBig,
   Lock,
   MoreVertical,
   Paperclip,
@@ -77,8 +77,8 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
     setSearchOpen(false);
     setSearchQuery("");
     setModeTransition(target);
-    modeTimers.current.push(window.setTimeout(() => dispatch({ type: "SELECT_CHAT", chatId: pairedChat.id }), 210));
-    modeTimers.current.push(window.setTimeout(() => setModeTransition(null), 560));
+    modeTimers.current.push(window.setTimeout(() => dispatch({ type: "SELECT_CHAT", chatId: pairedChat.id }), 330));
+    modeTimers.current.push(window.setTimeout(() => setModeTransition(null), 760));
   };
 
   const onDropFile = async (file: File) => {
@@ -198,7 +198,7 @@ function ChatHeader({ conv, ws, onBack, onSearch, onModeSwitch }: { conv: Conver
             aria-pressed={!!ws}
             onClick={onModeSwitch}
           >
-            <Files size={20} />
+            <LibraryBig size={20} />
           </IconButton>
         )}
         <IconButton label="Tùy chọn" active={menu} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
@@ -213,13 +213,17 @@ function ChatHeader({ conv, ws, onBack, onSearch, onModeSwitch }: { conv: Conver
 function WorkspaceModeTransition({ target }: { target: "workspace" | "chat" }) {
   return (
     <div className="workspace-switch" aria-hidden>
-      <div className="workspace-switch__folder">
-        <div className="workspace-switch__sheet workspace-switch__sheet--back" />
-        <div className="workspace-switch__sheet workspace-switch__sheet--front">
+      <div className="workspace-switch__binder">
+        <div className="workspace-switch__binder-back" />
+        <div className="workspace-switch__paper workspace-switch__paper--back" />
+        <div className="workspace-switch__paper workspace-switch__paper--front">
           <span className="workspace-switch__lines" />
         </div>
-        <div className="workspace-switch__cover">
-          <Files size={30} />
+        <div className="workspace-switch__rings" aria-hidden>
+          <i /><i /><i />
+        </div>
+        <div className="workspace-switch__binder-cover">
+          <LibraryBig size={30} />
           <span>{target === "workspace" ? "Mở hồ sơ công việc" : "Trở lại hội thoại"}</span>
         </div>
       </div>
