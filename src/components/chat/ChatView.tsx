@@ -133,7 +133,6 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
 /* ---------- Header ---------- */
 
 function ChatHeader({ conv, ws, onBack, onSearch }: { conv: Conversation; ws?: Workspace; onBack?: () => void; onSearch: () => void }) {
-  const { dispatch } = useStore();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
