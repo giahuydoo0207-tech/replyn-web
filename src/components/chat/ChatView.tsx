@@ -39,7 +39,7 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
   const [dragging, setDragging] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [modeTransition, setModeTransition] = useState<"workspace" | "chat" | null>(null);
+  const [modeTransition, setModeTransition] = useState<"workspace" | "chat" | "proposal" | null>(null);
   const modeTimers = useRef<number[]>([]);
 
   useEffect(() => () => modeTimers.current.forEach(window.clearTimeout), []);
@@ -66,18 +66,29 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
     ? messages.filter((m) => (m.text ?? "").toLowerCase().includes(searchQuery.trim().toLowerCase()))
     : messages;
   const sourceChat = conv.sourceNovaChatId ? state.conversations[conv.sourceNovaChatId] : undefined;
-  const workspaceChat = !ws && conv.proposalStatus === "opened" && conv.linkedWorkspaceChatId
+  const workspaceChat = !ws && conv.linkedWorkspaceChatId
     ? state.conversations[conv.linkedWorkspaceChatId]
     : undefined;
   const pairedChat = sourceChat ?? workspaceChat;
+  const proposalMessageId = !ws && conv.proposalStatus && conv.proposalMessageId
+    ? conv.proposalMessageId
+    : undefined;
+  const folderAction = ws ? "chat" : pairedChat ? "workspace" : proposalMessageId ? "proposal" : null;
 
-  const switchConversationMode = () => {
-    if (!pairedChat || modeTransition) return;
-    const target = ws ? "chat" : "workspace";
+  const openProjectFolder = () => {
+    if (!folderAction || modeTransition) return;
     setSearchOpen(false);
     setSearchQuery("");
-    setModeTransition(target);
-    modeTimers.current.push(window.setTimeout(() => dispatch({ type: "SELECT_CHAT", chatId: pairedChat.id }), 330));
+    setModeTransition(folderAction);
+    modeTimers.current.push(window.setTimeout(() => {
+      if (folderAction === "proposal" && proposalMessageId) {
+        dispatch({ type: "FLASH", id: proposalMessageId });
+        document.getElementById(`msg-${proposalMessageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        modeTimers.current.push(window.setTimeout(() => dispatch({ type: "FLASH", id: null }), 1700));
+        return;
+      }
+      if (pairedChat) dispatch({ type: "SELECT_CHAT", chatId: pairedChat.id });
+    }, 330));
     modeTimers.current.push(window.setTimeout(() => setModeTransition(null), 760));
   };
 
@@ -96,7 +107,14 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
 
   return (
     <section aria-label={`Trò chuyện: ${sourceChat?.title ?? conv.title}`} className="relative isolate flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
-      <ChatHeader conv={conv} ws={ws} onBack={onBack} onSearch={() => setSearchOpen((v) => !v)} onModeSwitch={pairedChat ? switchConversationMode : undefined} />
+      <ChatHeader
+        conv={conv}
+        ws={ws}
+        onBack={onBack}
+        onSearch={() => setSearchOpen((v) => !v)}
+        folderAction={folderAction}
+        onModeSwitch={folderAction ? openProjectFolder : undefined}
+      />
       {searchOpen && <ChatSearch value={searchQuery} onChange={setSearchQuery} count={shownMessages.length} onClose={() => { setSearchOpen(false); setSearchQuery(""); }} />}
       {ws && <ProjectTaskBar ws={ws} />}
       {conv.id === "nova-khoa" && !conv.proposalStatus && <NudgeBar conv={conv} />}
@@ -153,7 +171,7 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
 
 /* ---------- Header ---------- */
 
-function ChatHeader({ conv, ws, onBack, onSearch, onModeSwitch }: { conv: Conversation; ws?: Workspace; onBack?: () => void; onSearch: () => void; onModeSwitch?: () => void }) {
+function ChatHeader({ conv, ws, onBack, onSearch, folderAction, onModeSwitch }: { conv: Conversation; ws?: Workspace; onBack?: () => void; onSearch: () => void; folderAction: "workspace" | "chat" | "proposal" | null; onModeSwitch?: () => void }) {
   const { state } = useStore();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -194,7 +212,7 @@ function ChatHeader({ conv, ws, onBack, onSearch, onModeSwitch }: { conv: Conver
         </IconButton>
         {onModeSwitch && (
           <IconButton
-            label={ws ? "Về hội thoại" : "Mở hồ sơ công việc"}
+            label={folderAction === "chat" ? "Về hội thoại" : folderAction === "proposal" ? "Xem đề xuất công việc" : "Mở hồ sơ công việc"}
             aria-pressed={!!ws}
             onClick={onModeSwitch}
           >
@@ -210,7 +228,7 @@ function ChatHeader({ conv, ws, onBack, onSearch, onModeSwitch }: { conv: Conver
   );
 }
 
-function WorkspaceModeTransition({ target }: { target: "workspace" | "chat" }) {
+function WorkspaceModeTransition({ target }: { target: "workspace" | "chat" | "proposal" }) {
   return (
     <div className="workspace-switch" aria-hidden>
       <div className="workspace-switch__binder">
@@ -224,7 +242,7 @@ function WorkspaceModeTransition({ target }: { target: "workspace" | "chat" }) {
         </div>
         <div className="workspace-switch__binder-cover">
           <LibraryBig size={30} />
-          <span>{target === "workspace" ? "Mở hồ sơ công việc" : "Trở lại hội thoại"}</span>
+          <span>{target === "workspace" ? "Mở hồ sơ công việc" : target === "proposal" ? "Xem đề xuất công việc" : "Trở lại hội thoại"}</span>
         </div>
       </div>
     </div>

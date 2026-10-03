@@ -66,6 +66,11 @@ try {
   const flow = await open({ width: 1600, height: 900 });
   await flow.getByRole("button", { name: "Thêm", exact: true }).click();
   await flow.getByRole("menuitem", { name: /Đề xuất Replyn/ }).click();
+  const pendingFolder = flow.getByRole("button", { name: "Xem đề xuất công việc", exact: true });
+  assert.ok(await pendingFolder.isVisible(), "Binder must appear as soon as the proposal is sent");
+  await pendingFolder.click();
+  await flow.waitForTimeout(850);
+  assert.ok(await flow.getByRole("button", { name: "Mở Replyn", exact: true }).isVisible(), "Pending binder returns to the proposal card");
   await flow.getByRole("button", { name: "Mở Replyn", exact: true }).click();
   assert.equal(await flow.getByRole("button", { name: /Landing page Mộc Coffee/ }).count(), 0, "Linked workspace must not create a second chat-list item");
   await shot(flow, "merged-workspace-mode");
@@ -99,6 +104,14 @@ try {
   await flow.getByRole("button", { name: "Giải ngân (mô phỏng)", exact: true }).first().click();
   assert.ok(await flow.getByText("Đã giải ngân (mô phỏng)", { exact: true }).count());
   await shot(flow, "project-flow-released");
+  await flow.getByRole("button", { name: "Quay lại cuộc trò chuyện", exact: true }).first().click();
+  await flow.getByRole("button", { name: "Về hội thoại", exact: true }).click();
+  await flow.waitForTimeout(850);
+  const completedFolder = flow.getByRole("button", { name: "Mở hồ sơ công việc", exact: true });
+  assert.ok(await completedFolder.isVisible(), "Binder remains available after the project is completed");
+  await completedFolder.click();
+  await flow.waitForTimeout(850);
+  assert.ok(await flow.getByRole("button", { name: "Về hội thoại", exact: true }).isVisible(), "Completed workspace can still be reopened");
 
   const mobile = await open({ width: 390, height: 844 });
   await mobile.getByRole("button", { name: /App đặt lịch Lotus Spa/ }).first().click();
