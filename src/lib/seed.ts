@@ -127,12 +127,12 @@ const seedMessages: Seed[] = [
   ["nova-yen", "u-yen", d(10, 8, 40), "Em gửi chị case study gần nhất được không?"],
 
   ["group-hcm", "u-tuan", d(10, 7, 50), "Có ai dùng thử Replyn chưa? Nghe nói khóa điều khoản + milestone ngay trong chat."],
-  ["group-hcm", "u-mai", d(10, 7, 52), "Mình đang dùng cho 1 dự án content. Có timeline “Bằng chứng dự án” nên đỡ cãi nhau hẳn 😅"],
+  ["group-hcm", "u-mai", d(10, 7, 52), "Mình đang dùng cho một dự án nội dung. Có Nhật ký dự án nên lúc đối chiếu rõ ràng hơn hẳn."],
   ["group-hcm", "u-ngoc", d(10, 7, 55), "Quan trọng là phí ghi rõ “mô phỏng” trong bản beta, đừng nhầm là tiền thật nha mọi người.", 16],
   ["group-hcm", "u-bao", d(10, 8, 3), "Bên mình vừa nộp milestone 2 qua Replyn, file có hash nên khách không bảo “chưa nhận được” được nữa."],
   ["group-hcm", "u-tuan", d(10, 8, 6), "Hay đấy. Tối nay ai đi offline UniHackFest không?"],
 
-  ["channel-nova", "nova-team", d(9, 10, 0), "📣 Replyn beta: chuyển từ Nova Chat sang workspace để khóa điều khoản, chia milestone, nộp sản phẩm và theo dõi Bằng chứng dự án. Cấp vốn, giải ngân và phí đều đang được mô phỏng, Replyn không custody tiền thật."],
+  ["channel-nova", "nova-team", d(9, 10, 0), "Replyn beta: chuyển từ Nova Chat sang dự án để xác nhận thỏa thuận, chia giai đoạn, nộp sản phẩm và theo dõi Nhật ký dự án. Cấp vốn, giải ngân và phí đều đang được mô phỏng. Replyn không giữ tiền thật."],
 ];
 
 function buildMessages(): Record<string, Message[]> {
@@ -247,7 +247,7 @@ export function initialState(): AppState {
       [wsChatId("ws-lotus")]: { ...s.conversations[wsChatId("ws-lotus")], unread: 2 },
       [wsChatId("ws-tramay")]: { ...s.conversations[wsChatId("ws-tramay")], unread: 1 },
     },
-    ui: { ...s.ui, activeChatId: "nova-khoa" },
+    ui: { ...s.ui, activeChatId: "nova-khoa", panelOpen: false },
   };
 }
 
@@ -262,10 +262,10 @@ export interface Scene {
 export const SCENES: Scene[] = [
   { id: 1, title: "Nova Chat", hint: "Phỏng vấn xong, mở menu “+” → Đề xuất Replyn" },
   { id: 2, title: "Đề xuất Replyn", hint: "Proposal card trong chat, CTA “Mở Replyn”" },
-  { id: 3, title: "Workspace & milestone", hint: "Điều khoản đã khóa, M1 đã ký quỹ (mô phỏng)" },
-  { id: 4, title: "Nộp sản phẩm", hint: "Notice nộp file, hash trong tab Files" },
-  { id: 5, title: "Tranh chấp", hint: "Sửa → nộp lại → mở tranh chấp → Đội ngũ Nova review" },
-  { id: 6, title: "Quyết định & bằng chứng", hint: "Chia tiền 600/400 + timeline Bằng chứng dự án" },
+  { id: 3, title: "Dự án và giai đoạn", hint: "Thỏa thuận đã xác nhận, giai đoạn 1 đã ký quỹ (mô phỏng)" },
+  { id: 4, title: "Nộp sản phẩm", hint: "Nộp tệp và đối chiếu phiên bản trong mục Sản phẩm" },
+  { id: 5, title: "Yêu cầu hỗ trợ", hint: "Yêu cầu sửa, nộp lại và nhờ Đội ngũ Nova hỗ trợ" },
+  { id: 6, title: "Phương án và nhật ký", hint: "Chia tiền 600/400 và xem Nhật ký dự án" },
 ];
 
 export function buildScene(n: number): AppState {

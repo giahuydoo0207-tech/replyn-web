@@ -1,36 +1,36 @@
 "use client";
 
 import {
-  AlertTriangle,
   Briefcase,
   Clapperboard,
-  FolderOpen,
+  Files,
+  ListTodo,
   Menu,
   MessageCircle,
   RotateCcw,
-  ShieldCheck,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { initials, visibleTo } from "@/lib/reducer";
 import { buildScene, initialState, SCENES } from "@/lib/seed";
-import { useActiveChat, useMe, useStore } from "@/lib/store";
+import { useMe, useStore } from "@/lib/store";
 import type { Role } from "@/lib/types";
 import { Avatar, cx, ReplynMark } from "./ui";
+import { NavigationMenu } from "./NavigationMenu";
 
 const COLLAPSED = 64;
 const EXPANDED = 224;
 
 /**
  * Sidebar thu/phóng: mặc định chỉ icon (64px). Hover thì giãn ra dạng overlay,
- * bấm ☰ để ghim mở (khi đó đẩy layout). Label ẩn bằng opacity + pointer-events,
+ * Nút menu mở điều hướng chức năng độc lập. Label ẩn bằng opacity + pointer-events,
  * không dùng display:none để animation mượt.
  */
 export function Rail() {
   const { state, dispatch } = useStore();
-  const { ws } = useActiveChat();
   const meId = useMe();
   const user = state.users[meId];
-  const [pinned, setPinned] = useState(false);
+  const pinned = false;
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -45,55 +45,43 @@ export function Rail() {
 
   const visible = state.order.filter((id) => visibleTo(state, id));
   const unread = visible.filter((id) => !state.conversations[id].muted).reduce((a, id) => a + state.conversations[id].unread, 0);
-  const disputes = visible.filter((id) => {
+  const tasks = visible.filter((id) => {
     const w = state.conversations[id].workspaceId;
-    return w && state.workspaces[w].disputes.some((d) => d.status !== "resolved");
+    return w && state.workspaces[w].milestones.some((m) => ["awaiting_funding", "in_review", "ready_to_release", "disputed"].includes(m.status));
   }).length;
 
-  const { filter, panelTab, panelOpen } = state.ui;
-  const panelActive = (t: string) => !!ws && panelOpen && panelTab === t;
+  const { filter, panelOpen } = state.ui;
 
   const items: { id: string; label: string; icon: ReactNode; active: boolean; badge?: number; danger?: boolean; run: () => void }[] = [
     {
       id: "chats",
-      label: "Chats",
+      label: "Tin nhắn",
       icon: <MessageCircle size={21} />,
-      active: filter === "all" || filter === "unread" || filter === "review",
+      active: !panelOpen && (filter === "all" || filter === "unread" || filter === "review"),
       badge: unread,
-      run: () => dispatch({ type: "SET_FILTER", filter: "all" }),
+      run: () => { dispatch({ type: "SET_FILTER", filter: "all" }); dispatch({ type: "SET_PANEL", open: false }); },
     },
     {
       id: "replyn",
-      label: "Replyn",
+      label: "Dự án",
       icon: <Briefcase size={21} />,
-      active: filter === "replyn",
-      run: () => dispatch({ type: "SET_FILTER", filter: "replyn" }),
+      active: !panelOpen && filter === "replyn",
+      run: () => { dispatch({ type: "SET_FILTER", filter: "replyn" }); dispatch({ type: "SET_PANEL", open: false }); },
+    },
+    {
+      id: "tasks",
+      label: "Việc cần làm",
+      icon: <ListTodo size={21} />,
+      active: !panelOpen && filter === "tasks",
+      badge: tasks,
+      run: () => { dispatch({ type: "SET_FILTER", filter: "tasks" }); dispatch({ type: "SET_PANEL", open: false }); },
     },
     {
       id: "files",
-      label: "Files",
-      icon: <FolderOpen size={21} />,
-      active: panelActive("files"),
-      run: () => dispatch({ type: "SET_PANEL", tab: "files", open: true }),
-    },
-    {
-      id: "evidence",
-      label: "Bằng chứng",
-      icon: <ShieldCheck size={21} />,
-      active: panelActive("evidence"),
-      run: () => dispatch({ type: "SET_PANEL", tab: "evidence", open: true }),
-    },
-    {
-      id: "dispute",
-      label: "Tranh chấp",
-      icon: <AlertTriangle size={21} />,
-      active: filter === "dispute",
-      badge: disputes,
-      danger: true,
-      run: () => {
-        dispatch({ type: "SET_FILTER", filter: "dispute" });
-        if (ws?.disputes.length) dispatch({ type: "SET_PANEL", tab: "dispute", open: true });
-      },
+      label: "Tệp",
+      icon: <Files size={21} />,
+      active: !panelOpen && filter === "files",
+      run: () => { dispatch({ type: "SET_FILTER", filter: "files" }); dispatch({ type: "SET_PANEL", open: false }); },
     },
   ];
 
@@ -106,17 +94,18 @@ export function Rail() {
         aria-label="Điều hướng chính"
         className={cx(
           "group/rail absolute inset-y-0 left-0 flex flex-col overflow-hidden border-r border-white/5 bg-rail py-3 transition-[width,box-shadow] duration-300 ease-out",
-          pinned ? "w-[224px]" : "w-16 hover:w-[224px] hover:shadow-[8px_0_24px_rgb(0_0_0/0.45)]",
+          "w-16 hover:w-[224px] has-[:focus-visible]:w-[224px] hover:shadow-[8px_0_24px_rgb(0_0_0/0.45)]",
         )}
       >
         {/* hàng đầu: ☰ + thương hiệu */}
         <div className="mb-2 flex h-11 items-center px-2">
           <button
             type="button"
-            onClick={() => setPinned((v) => !v)}
-            aria-label={pinned ? "Thu gọn thanh bên" : "Ghim mở thanh bên"}
-            aria-pressed={pinned}
-            title={pinned ? "Thu gọn thanh bên" : "Ghim mở thanh bên"}
+            onClick={() => setNavigationOpen(true)}
+            aria-label="Menu Replyn"
+            aria-haspopup="dialog"
+            aria-expanded={navigationOpen}
+            title="Menu Replyn"
             className="grid size-12 shrink-0 place-items-center rounded-xl text-ink-2 hover:bg-white/6 hover:text-ink focus-visible:outline-2 focus-visible:outline-white/40"
           >
             <Menu size={22} />
@@ -169,6 +158,7 @@ export function Rail() {
           )}
         </div>
       </nav>
+      {navigationOpen && <NavigationMenu onClose={() => setNavigationOpen(false)} />}
     </div>
   );
 }
@@ -180,7 +170,7 @@ function Label({ pinned, className, children }: { pinned: boolean; className?: s
         "whitespace-nowrap transition-opacity duration-300",
         pinned
           ? "pointer-events-auto opacity-100"
-          : "pointer-events-none opacity-0 group-hover/rail:pointer-events-auto group-hover/rail:opacity-100 group-hover/rail:delay-100",
+          : "pointer-events-none opacity-0 group-hover/rail:pointer-events-auto group-hover/rail:opacity-100 group-hover/rail:delay-100 group-has-[:focus-visible]/rail:opacity-100",
         className,
       )}
     >

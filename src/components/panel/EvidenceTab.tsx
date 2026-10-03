@@ -33,7 +33,7 @@ const ICON: Record<EvidenceType, ComponentType<{ size?: number }>> = {
   released: Banknote,
 };
 
-/** Sổ cái minh bạch — trả lời câu hỏi "ai bảo vệ hai bên, bằng chứng đâu?" */
+/** Nhật ký minh bạch giúp hai bên đối chiếu toàn bộ diễn biến dự án. */
 export function EvidenceTab({ ws }: { ws: Workspace }) {
   const { state, dispatch } = useStore();
   const actorLabel = (id: string) => {
@@ -46,13 +46,13 @@ export function EvidenceTab({ ws }: { ws: Workspace }) {
     <div>
       <div className="rounded-xl bg-panel p-4">
         <h3 className="flex items-center gap-2 text-[16px] font-semibold">
-          <Lock size={16} className="text-ink-2" /> Bằng chứng dự án
+          <Lock size={16} className="text-ink-2" /> Nhật ký dự án
         </h3>
         <p className="mt-1 text-[13px] text-ink-2">
-          Mọi sự kiện được ghi theo thời gian, gắn với tin nhắn, file và milestone. Không bên nào sửa hoặc xóa được.
+          Mọi hoạt động được ghi theo thời gian, gắn với tin nhắn, sản phẩm và giai đoạn liên quan. Không bên nào tự sửa hoặc xóa được.
         </p>
         <p className="mt-2 text-xs text-muted">
-          {ws.evidence.length} sự kiện · {ws.attachments.length} file có hash · {ws.disputes.length} tranh chấp
+          {ws.evidence.length} hoạt động · {ws.attachments.length} sản phẩm có mã đối chiếu · {ws.disputes.length} yêu cầu hỗ trợ
         </p>
       </div>
 

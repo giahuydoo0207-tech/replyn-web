@@ -15,7 +15,7 @@ export function MilestonesTab({ ws }: { ws: Workspace }) {
         <MilestonePanelCard key={m.id} ws={ws} ms={m} idx={i + 1} />
       ))}
       <p className="px-1 pt-1 text-xs leading-relaxed text-muted">
-        Phí vận hành được tính minh họa trong bản demo. Replyn chưa thu phí thật và không custody tiền thật.
+        Phí vận hành được tính minh họa trong bản demo. Replyn chưa thu phí và không giữ tiền thật.
       </p>
     </div>
   );
@@ -32,7 +32,7 @@ function MilestonePanelCard({ ws, ms, idx }: { ws: Workspace; ms: Milestone; idx
       <div className="px-4 pt-3.5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs text-muted">Milestone {idx}</p>
+            <p className="text-xs text-muted">Giai đoạn {idx}</p>
             <h3 className="text-[15px] font-semibold leading-snug">{ms.title}</h3>
           </div>
           <p className="shrink-0 text-[15px] font-semibold">{usdc(ms.amount)}</p>
@@ -72,12 +72,12 @@ function MilestonePanelCard({ ws, ms, idx }: { ws: Workspace; ms: Milestone; idx
             <dd>{usdc(est.fee)}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-muted">Freelancer nhận dự kiến</dt>
+            <dt className="text-muted">Người thực hiện dự kiến nhận</dt>
             <dd className="font-medium">{usdc(est.freelancerNet)}</dd>
           </div>
           {est.businessRefund > 0 && (
             <div className="flex justify-between gap-3">
-              <dt className="text-muted">Business hoàn dự kiến</dt>
+              <dt className="text-muted">Doanh nghiệp dự kiến nhận lại</dt>
               <dd className="font-medium">{usdc(est.businessRefund)}</dd>
             </div>
           )}
@@ -91,7 +91,7 @@ function MilestonePanelCard({ ws, ms, idx }: { ws: Workspace; ms: Milestone; idx
           </Button>
         ))}
         {waiting && <span className="text-[13px] text-muted">{waiting}</span>}
-        {!actions.length && !waiting && <span className="text-[13px] text-muted">Milestone đã khép lại</span>}
+        {!actions.length && !waiting && <span className="text-[13px] text-muted">Giai đoạn đã hoàn tất</span>}
       </div>
     </article>
   );

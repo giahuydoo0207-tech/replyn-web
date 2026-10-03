@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  AlertTriangle,
   ArrowLeft,
+  Bell,
+  BellOff,
   ChevronRight,
   Image as ImageIcon,
   Lock,
   MoreVertical,
-  PanelRight,
   Paperclip,
   Pin,
   Plus,
@@ -21,10 +21,11 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { usdc } from "@/lib/fees";
 import { sha256Hex } from "@/lib/format";
-import { openDisputes } from "@/lib/protection";
+import { nextAction } from "@/lib/protection";
 import { useActiveChat, useMe, useStore } from "@/lib/store";
 import type { Conversation, Workspace } from "@/lib/types";
 import { useWorkspaceActions } from "../actions";
+import { PROJECT_TOOLS } from "../projectTools";
 import { Avatar, Button, cx, IconButton, ReplynMark } from "../ui";
 import { MessageList } from "./Messages";
 
@@ -35,6 +36,8 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
   const dialogs = useWorkspaceActions();
   const scroller = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // vào chat: nhảy xuống cuối ngay lập tức
   useLayoutEffect(() => {
@@ -54,6 +57,9 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
 
   const submittable = ws?.milestones.find((m) => ["funded_sim", "revision_requested"].includes(m.status));
   const canSubmit = !!ws && meId === ws.freelancerId && !!submittable;
+  const shownMessages = searchQuery.trim()
+    ? messages.filter((m) => (m.text ?? "").toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : messages;
 
   const onDropFile = async (file: File) => {
     if (ws && canSubmit && submittable) {
@@ -70,8 +76,9 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
 
   return (
     <section aria-label={`Trò chuyện: ${conv.title}`} className="flex h-full min-w-0 flex-1 flex-col bg-canvas">
-      <ChatHeader conv={conv} ws={ws} onBack={onBack} />
-      {ws && <PinnedTerms ws={ws} />}
+      <ChatHeader conv={conv} ws={ws} onBack={onBack} onSearch={() => setSearchOpen((v) => !v)} />
+      {searchOpen && <ChatSearch value={searchQuery} onChange={setSearchQuery} count={shownMessages.length} onClose={() => { setSearchOpen(false); setSearchQuery(""); }} />}
+      {ws && <ProjectTaskBar ws={ws} />}
       {conv.id === "nova-khoa" && !conv.proposalStatus && <NudgeBar conv={conv} />}
 
       <div
@@ -98,7 +105,8 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
               Nova Chat dùng để phỏng vấn và chọn nhau. Khi bắt đầu có tiền, deadline và bàn giao, hãy chuyển sang Replyn.
             </p>
           )}
-          <MessageList conv={conv} messages={messages} />
+          <MessageList conv={conv} messages={shownMessages} />
+          {searchQuery.trim() && shownMessages.length === 0 && <p className="mx-auto mt-12 w-fit rounded-lg bg-notice px-3 py-2 text-sm text-ink-2">Không tìm thấy tin nhắn phù hợp.</p>}
         </div>
         {dragging && (
           <div className="pointer-events-none absolute inset-3 z-20 grid place-items-center rounded-2xl border-2 border-dashed border-white/40 bg-black/70">
@@ -124,8 +132,17 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
 
 /* ---------- Header ---------- */
 
-function ChatHeader({ conv, ws, onBack }: { conv: Conversation; ws?: Workspace; onBack?: () => void }) {
-  const { state, dispatch } = useStore();
+function ChatHeader({ conv, ws, onBack, onSearch }: { conv: Conversation; ws?: Workspace; onBack?: () => void; onSearch: () => void }) {
+  const { dispatch } = useStore();
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: MouseEvent) => !menuRef.current?.contains(e.target as Node) && setMenu(false);
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [menu]);
   return (
     <header className="flex h-[60px] shrink-0 items-center gap-3 border-b border-white/5 bg-sidebar px-3 sm:px-4">
       {onBack && (
@@ -150,68 +167,52 @@ function ChatHeader({ conv, ws, onBack }: { conv: Conversation; ws?: Workspace; 
               : conv.subtitle}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-0.5">
-        <IconButton label="Tìm trong cuộc trò chuyện" className="hidden sm:grid">
+      <div className="relative flex shrink-0 items-center gap-0.5" ref={menuRef}>
+        <IconButton label="Tìm trong cuộc trò chuyện" className="hidden sm:grid" onClick={onSearch}>
           <Search size={20} />
         </IconButton>
-        {ws && openDisputes(ws).length > 0 && (
-          <button
-            type="button"
-            onClick={() => dispatch({ type: "SET_PANEL", tab: "dispute", open: true })}
-            className="mr-1 inline-flex items-center gap-1.5 rounded-full bg-danger/12 px-2.5 py-1 text-[13px] font-medium text-[#ff9b9b] hover:bg-danger/20"
-            title="Xem tranh chấp"
-          >
-            <AlertTriangle size={14} />
-            <span className="hidden sm:inline">Xem tranh chấp</span>
-          </button>
-        )}
-        {ws && (
-          <>
-            <IconButton
-              label="Bằng chứng dự án"
-              active={state.ui.panelOpen && state.ui.panelTab === "evidence"}
-              onClick={() => dispatch({ type: "SET_PANEL", tab: "evidence", open: true })}
-            >
-              <ShieldCheck size={20} />
-            </IconButton>
-            <IconButton
-              label={state.ui.panelOpen ? "Ẩn Bảo vệ dự án" : "Hiện Bảo vệ dự án"}
-              active={state.ui.panelOpen}
-              onClick={() => dispatch({ type: "SET_PANEL", open: !state.ui.panelOpen })}
-            >
-              <PanelRight size={20} />
-            </IconButton>
-          </>
-        )}
-        <IconButton label="Tùy chọn">
+        <IconButton label="Tùy chọn" active={menu} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
           <MoreVertical size={20} />
         </IconButton>
+        {menu && <ConversationMenu conv={conv} ws={ws} onSearch={onSearch} onClose={() => setMenu(false)} />}
       </div>
     </header>
   );
 }
 
-/* ---------- Dòng ghim kiểu Telegram: điều khoản + nhắc demo mô phỏng ---------- */
-
-function PinnedTerms({ ws }: { ws: Workspace }) {
-  const { dispatch } = useStore();
-  const total = ws.milestones.reduce((a, m) => a + m.amount, 0);
-  const locked = !!ws.termsLockedAt;
+function ChatSearch({ value, onChange, count, onClose }: { value: string; onChange: (value: string) => void; count: number; onClose: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={() => dispatch({ type: "SET_PANEL", tab: "terms", open: true })}
-      className="flex w-full shrink-0 items-center gap-2.5 border-b border-white/5 bg-sidebar px-4 py-1.5 text-left text-[13px] hover:bg-white/[0.03]"
-    >
-      {locked ? <Lock size={14} className="shrink-0 text-muted" /> : <Pin size={14} className="shrink-0 text-amber" />}
-      <span className="min-w-0 flex-1 truncate text-ink-2">
-        <span className="font-medium text-ink">{locked ? "Điều khoản đã khóa" : "Điều khoản chưa khóa"}</span>
-        {" · "}
-        {ws.milestones.length} milestone · {usdc(total)} · {ws.feeTier === "BASIC" ? "BASIC 7%" : "ADVANCED 10%"}
-        <span className="text-muted"> · Demo: ký quỹ, giải ngân và phí đều là mô phỏng</span>
-      </span>
-      <ChevronRight size={15} className="shrink-0 text-muted" />
-    </button>
+    <div className="flex shrink-0 items-center gap-2 border-b border-line bg-sidebar px-3 py-2 sm:px-4">
+      <Search size={17} className="text-muted" />
+      <input autoFocus value={value} onChange={(e) => onChange(e.target.value)} placeholder="Tìm trong cuộc trò chuyện" className="h-9 min-w-0 flex-1 rounded-lg bg-white/6 px-3 text-sm outline-none placeholder:text-muted focus:ring-1 focus:ring-white/20" />
+      <span className="whitespace-nowrap text-xs text-muted">{value.trim() ? `${count} kết quả` : "Nhập từ khóa"}</span>
+      <IconButton label="Đóng tìm kiếm" onClick={onClose} className="size-9"><X size={17} /></IconButton>
+    </div>
+  );
+}
+
+function ProjectTaskBar({ ws }: { ws: Workspace }) {
+  const { dispatch } = useStore();
+  const meId = useMe();
+  const next = nextAction(ws, meId);
+  if (!next.tab) return null;
+  return <button type="button" onClick={() => dispatch({ type: "SET_PANEL", tab: next.tab!, open: true })} className="flex w-full shrink-0 items-center gap-2.5 border-b border-line bg-sidebar px-4 py-2 text-left text-[13px] hover:bg-white/[0.03]"><span className={cx("size-2 shrink-0 rounded-full", next.urgent === "danger" ? "bg-danger" : "bg-amber")} /><span className="min-w-0 flex-1 truncate"><span className="text-muted">Việc cần làm: </span><span className="font-medium text-ink">{next.text}</span></span><span className="text-xs font-medium text-link">Mở</span><ChevronRight size={15} className="text-muted" /></button>;
+}
+
+function ConversationMenu({ conv, ws, onSearch, onClose }: { conv: Conversation; ws?: Workspace; onSearch: () => void; onClose: () => void }) {
+  const { dispatch } = useStore();
+  const openTool = (tab: (typeof PROJECT_TOOLS)[number]["tab"]) => { dispatch({ type: "SET_PANEL", tab, open: true }); onClose(); };
+  const run = (fn: () => void) => { fn(); onClose(); };
+  return (
+    <div role="menu" aria-label="Tùy chọn cuộc trò chuyện" className="msg-in absolute right-0 top-11 z-40 w-[300px] overflow-hidden rounded-xl bg-panel py-1.5 shadow-2xl ring-1 ring-line">
+      {ws && <><p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase text-muted">Công cụ dự án</p>{PROJECT_TOOLS.map((item) => <button key={item.tab} role="menuitem" onClick={() => openTool(item.tab)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-hover"><item.icon size={18} className="text-ink-2" /><span className="min-w-0"><span className="block text-sm font-medium">{item.menuLabel}</span><span className="block truncate text-xs text-muted">{item.hint}</span></span></button>)}</>}
+      {!ws && conv.proposal && !conv.proposalStatus && <button role="menuitem" onClick={() => run(() => dispatch({ type: "PROPOSE_REPLYN", chatId: conv.id }))} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-hover"><ShieldCheck size={18} className="text-yellow" /><span><span className="block text-sm font-medium">Đề xuất Replyn</span><span className="block text-xs text-muted">Chuyển từ trao đổi sang làm việc</span></span></button>}
+      <div className={cx(ws && "mt-1 border-t border-line pt-1")}>
+        <button role="menuitem" onClick={() => run(onSearch)} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-hover"><Search size={18} className="text-ink-2" />Tìm trong cuộc trò chuyện</button>
+        <button role="menuitem" onClick={() => run(() => dispatch({ type: "TOGGLE_PIN", chatId: conv.id }))} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-hover"><Pin size={18} className="text-ink-2" />{conv.pinned ? "Bỏ ghim cuộc trò chuyện" : "Ghim cuộc trò chuyện"}</button>
+        <button role="menuitem" onClick={() => run(() => dispatch({ type: "TOGGLE_MUTE", chatId: conv.id }))} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-hover">{conv.muted ? <Bell size={18} className="text-ink-2" /> : <BellOff size={18} className="text-ink-2" />}{conv.muted ? "Bật thông báo" : "Tắt thông báo"}</button>
+      </div>
+    </div>
   );
 }
 

@@ -20,7 +20,7 @@ export function useMilestoneActions(ws: Workspace, ms: Milestone): { actions: Ms
   const isBiz = meId === ws.businessId;
   const isFl = meId === ws.freelancerId;
   const t = { wsId: ws.id, milestoneId: ms.id };
-  const disputeBtn: MsAction = { key: "dispute", label: "Mở tranh chấp", variant: "danger", run: () => dialogs.dispute(t) };
+  const disputeBtn: MsAction = { key: "dispute", label: "Yêu cầu hỗ trợ", variant: "danger", run: () => dialogs.dispute(t) };
   const openDispute = () => dispatch({ type: "SET_PANEL", tab: "dispute", open: true });
 
   switch (ms.status) {
@@ -28,18 +28,18 @@ export function useMilestoneActions(ws: Workspace, ms: Milestone): { actions: Ms
       if (!ws.termsLockedAt) {
         return {
           actions: [
-            { key: "terms", label: "Xem điều khoản", variant: "secondary", run: () => dispatch({ type: "SET_PANEL", tab: "terms", open: true }) },
+            { key: "terms", label: "Xem thỏa thuận", variant: "secondary", run: () => dispatch({ type: "SET_PANEL", tab: "terms", open: true }) },
           ],
-          waiting: "Cần khóa điều khoản trước khi ký quỹ",
+          waiting: "Cần xác nhận thỏa thuận trước khi ký quỹ",
         };
       }
       return isBiz
         ? { actions: [{ key: "fund", label: "Ký quỹ (mô phỏng)", variant: "primary", run: () => dispatch({ type: "FUND", ...t }) }] }
-        : { actions: [], waiting: "Chờ business ký quỹ (mô phỏng)" };
+        : { actions: [], waiting: "Chờ doanh nghiệp ký quỹ (mô phỏng)" };
     case "funded_sim":
       return isFl
         ? { actions: [{ key: "submit", label: "Nộp sản phẩm", variant: "primary", run: () => dialogs.submit(t) }] }
-        : { actions: [], waiting: "Freelancer đang thực hiện" };
+        : { actions: [], waiting: "Người thực hiện đang làm việc" };
     case "submitted":
     case "in_review":
       return isBiz
@@ -52,18 +52,18 @@ export function useMilestoneActions(ws: Workspace, ms: Milestone): { actions: Ms
               disputeBtn,
             ],
           }
-        : { actions: isFl ? [disputeBtn] : [], waiting: `Business có ${ms.reviewDays} ngày để nghiệm thu` };
+        : { actions: isFl ? [disputeBtn] : [], waiting: `Doanh nghiệp có ${ms.reviewDays} ngày để nghiệm thu` };
     case "revision_requested":
       return isFl
         ? { actions: [{ key: "resubmit", label: "Nộp lại", variant: "primary", run: () => dialogs.submit(t) }, disputeBtn] }
-        : { actions: isBiz ? [disputeBtn] : [], waiting: "Chờ freelancer nộp lại" };
+        : { actions: isBiz ? [disputeBtn] : [], waiting: "Chờ người thực hiện nộp lại" };
     case "ready_to_release":
       return isBiz
         ? { actions: [{ key: "release", label: "Giải ngân (mô phỏng)", variant: "primary", run: () => dispatch({ type: "RELEASE", ...t }) }] }
-        : { actions: [], waiting: "Đủ điều kiện giải ngân, chờ business xác nhận" };
+        : { actions: [], waiting: "Đủ điều kiện giải ngân, chờ doanh nghiệp xác nhận" };
     case "disputed":
       return {
-        actions: [{ key: "view", label: "Xem tranh chấp", variant: "danger", run: openDispute }],
+        actions: [{ key: "view", label: "Xem hỗ trợ", variant: "danger", run: openDispute }],
         waiting: "Đang tạm giữ, chờ Đội ngũ Nova",
       };
     default:

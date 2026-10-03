@@ -10,18 +10,20 @@ export function noticeText(s: AppState, m: Message): string {
   const idx = ws && ms ? ws.milestones.indexOf(ms) + 1 : 0;
   const name = (id?: string) => (id ? s.users[id]?.short : "") ?? "";
   switch (m.kind) {
+    case "milestone":
+      return `Giai đoạn ${idx} đã được tạo${ms ? ` · ${ms.title}` : ""}`;
     case "payment":
       return m.text === "released"
-        ? `Đã kích hoạt giải ngân mô phỏng cho Milestone ${idx}`
-        : `${name(ws?.businessId)} đã kích hoạt ký quỹ mô phỏng cho Milestone ${idx}`;
+        ? `Đã kích hoạt giải ngân mô phỏng cho giai đoạn ${idx}`
+        : `${name(ws?.businessId)} đã kích hoạt ký quỹ mô phỏng cho giai đoạn ${idx}`;
     case "submission": {
       const a = findAttachment(s, m.refs?.attachmentId);
-      return `${name(ws?.freelancerId)} đã nộp file cho Milestone ${idx}${a?.version ? ` (v${a.version})` : ""}`;
+      return `${name(ws?.freelancerId)} đã nộp sản phẩm cho giai đoạn ${idx}${a?.version ? ` (v${a.version})` : ""}`;
     }
     case "dispute":
-      return `Tranh chấp đã được mở · Milestone ${idx}`;
+      return `Đã yêu cầu hỗ trợ · Giai đoạn ${idx}`;
     case "decision":
-      return `Đội ngũ Nova đã giải quyết tranh chấp${ms?.payout ? ` · ${DECISION_LABEL[ms.payout.decision]}` : ""}`;
+      return `Đội ngũ Nova đã đưa ra phương án xử lý${ms?.payout ? ` · ${DECISION_LABEL[ms.payout.decision]}` : ""}`;
     default:
       return m.text ?? "";
   }

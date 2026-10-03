@@ -33,6 +33,7 @@ export function useActiveChat() {
 
 /** Cuộn tới tin nhắn trong khung chat và nháy viền vàng */
 export function jumpToMessage(dispatch: Dispatch<Action>, messageId: string) {
+  dispatch({ type: "SET_PANEL", open: false });
   dispatch({ type: "FLASH", id: messageId });
   requestAnimationFrame(() => {
     document.getElementById(`msg-${messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });

@@ -15,10 +15,10 @@ export function DisputeTab({ ws }: { ws: Workspace }) {
       <div className="space-y-4">
         <div className="rounded-xl bg-panel p-4 text-center">
           <ShieldCheck size={28} className="mx-auto text-muted" />
-          <p className="mt-2 font-semibold">Chưa có tranh chấp</p>
+          <p className="mt-2 font-semibold">Chưa có yêu cầu hỗ trợ</p>
           <p className="mt-1 text-sm text-ink-2">
-            Khi có bất đồng, một bên mở tranh chấp trên milestone. Milestone sẽ được tạm giữ. Hai bên có thể cung cấp bằng
-            chứng trước khi Đội ngũ Nova đưa ra quyết định.
+            Khi có bất đồng, một bên có thể yêu cầu hỗ trợ cho giai đoạn liên quan. Giai đoạn sẽ được tạm giữ để hai bên
+            bổ sung thông tin trước khi Đội ngũ Nova đề xuất phương án xử lý.
           </p>
         </div>
         <FeeTable ws={ws} ms={ws.milestones[0]} gross={600} />
@@ -34,7 +34,7 @@ export function DisputeTab({ ws }: { ws: Workspace }) {
   );
 }
 
-const STEPS = ["Đã mở tranh chấp", "Đội ngũ Nova review", "Quyết định"] as const;
+const STEPS = ["Đã tiếp nhận", "Đang đối chiếu", "Phương án xử lý"] as const;
 
 function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
   const { state, dispatch } = useStore();
@@ -50,7 +50,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
       <section className="rounded-xl bg-panel p-4">
         <div className="flex items-start justify-between gap-2">
           <h3 className="flex items-center gap-2 text-[16px] font-semibold">
-            <AlertTriangle size={17} className="text-danger" /> Tranh chấp M{idx}
+            <AlertTriangle size={17} className="text-danger" /> Hỗ trợ giai đoạn {idx}
           </h3>
           <StatusBadge status={ms.status} />
         </div>
@@ -58,7 +58,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
           {ms.title} · {usdc(ms.amount)}
         </p>
 
-        <ol className="mt-3 flex items-center gap-1" aria-label="Tiến trình tranh chấp">
+        <ol className="mt-3 flex items-center gap-1" aria-label="Tiến trình hỗ trợ">
           {STEPS.map((s, i) => (
             <li key={s} className="flex flex-1 items-center gap-1">
               <span
@@ -95,7 +95,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
           </div>
         </dl>
         <p className="mt-3 text-[13px] text-ink-2">
-          Milestone sẽ được tạm giữ. Hai bên có thể cung cấp bằng chứng trước khi Đội ngũ Nova đưa ra quyết định.
+          Giai đoạn được tạm giữ trong lúc hai bên bổ sung thông tin và Đội ngũ Nova đối chiếu thỏa thuận.
         </p>
       </section>
 
@@ -197,11 +197,11 @@ function PayoutRows({ ws, ms, gross, tier }: { ws: Workspace; ms: Milestone; gro
   const p = computePayout(ms.amount, gross, tier);
   return (
     <dl className="mt-3 space-y-1.5 rounded-lg bg-white/[0.04] p-3 text-[14px]">
-      <Line k="Milestone" v={usdc(ms.amount)} />
+      <Line k="Giá trị giai đoạn" v={usdc(ms.amount)} />
       <Line k={FEE_LABEL[ws.feeTier]} v={`− ${usdc(p.fee)}`} />
       <Line k="Freelancer nhận dự kiến" v={usdc(p.freelancerNet)} strong />
       <Line k="Business hoàn dự kiến" v={usdc(p.businessRefund)} strong />
-      <Line k="Replyn fee dự kiến" v={usdc(p.fee)} />
+      <Line k="Phí vận hành dự kiến" v={usdc(p.fee)} />
     </dl>
   );
 }

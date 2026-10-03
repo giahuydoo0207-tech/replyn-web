@@ -1,20 +1,21 @@
 "use client";
 
-import { BellOff, CheckCheck, Megaphone, MessageSquarePlus, MoreVertical, Pin, Search, ShieldCheck, Users } from "lucide-react";
+import { BellOff, CheckCheck, Megaphone, Menu, MessageSquarePlus, MoreVertical, Pin, Search, ShieldCheck, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { listTime } from "@/lib/format";
 import { previewOf } from "@/lib/preview";
 import { SYSTEM_ID, visibleTo, workspaceHeadline, type ListFilter } from "@/lib/reducer";
+import { milestonesNeedingMe, openDisputes } from "@/lib/protection";
 import { useMe, useStore } from "@/lib/store";
 import type { Conversation } from "@/lib/types";
 import { Avatar, cx, IconButton, StatusBadge } from "./ui";
+import { NavigationMenu } from "./NavigationMenu";
 
 const FILTERS: { id: ListFilter; label: string }[] = [
   { id: "all", label: "Tất cả" },
   { id: "unread", label: "Chưa đọc" },
-  { id: "replyn", label: "Replyn" },
-  { id: "review", label: "Chờ nghiệm thu" },
-  { id: "dispute", label: "Tranh chấp" },
+  { id: "replyn", label: "Dự án" },
+  { id: "tasks", label: "Việc cần làm" },
 ];
 
 function KindIcon({ conv }: { conv: Conversation }) {
@@ -28,6 +29,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
   const { state, dispatch } = useStore();
   const meId = useMe();
   const [q, setQ] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const { filter, activeChatId } = state.ui;
 
   const items = useMemo(() => {
@@ -49,6 +51,10 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
           return c.unread > 0;
         case "replyn":
           return c.kind === "replyn";
+        case "tasks":
+          return !!ws && (milestonesNeedingMe(ws, meId).length > 0 || openDisputes(ws).length > 0 || !ws.termsLockedAt);
+        case "files":
+          return msgs.some((m) => m.kind === "file" || m.kind === "submission");
         case "review":
           return !!ws?.milestones.some((m) => m.status === "in_review");
         case "dispute":
@@ -57,7 +63,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
           return true;
       }
     });
-  }, [state, q, filter]);
+  }, [state, q, filter, meId]);
 
   const count = (f: ListFilter) =>
     f === "unread" ? state.order.filter((id) => visibleTo(state, id) && state.conversations[id].unread > 0).length : 0;
@@ -65,6 +71,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
   return (
     <section aria-label="Danh sách trò chuyện" className="flex h-full min-w-0 flex-col bg-sidebar">
       <header className="flex items-center justify-between px-5 pb-2 pt-4">
+        <IconButton label="Menu Replyn" className="md:hidden" onClick={() => setMenuOpen(true)}><Menu size={22} /></IconButton>
         <h1 className="text-[26px] font-bold tracking-tight">Replyn</h1>
         <div className="flex gap-1">
           <IconButton label="Trò chuyện mới">
@@ -75,6 +82,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
           </IconButton>
         </div>
       </header>
+      {menuOpen && <NavigationMenu onClose={() => setMenuOpen(false)} />}
 
       <div className="px-4">
         <label className="flex h-10 items-center gap-3 rounded-full bg-white/6 px-4 text-ink-2 focus-within:ring-1 focus-within:ring-white/25">
@@ -82,7 +90,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Tìm kiếm workspace, người, tin nhắn"
+            placeholder="Tìm dự án, người hoặc tin nhắn"
             className="w-full bg-transparent text-[15px] text-ink placeholder:text-muted focus:outline-none"
             aria-label="Tìm kiếm"
           />

@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@keyframes navigation-enter {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.navigation-drawer { animation: navigation-enter 180ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
 /* Replyn design tokens — dark neutral (không ám vàng), vàng chỉ là accent */
 :root {
   --app: #0c1317;

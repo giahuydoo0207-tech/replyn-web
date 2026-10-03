@@ -56,7 +56,7 @@ function MilestoneLine({ t }: { t: Target }) {
   const { ms, idx } = useTarget(t);
   return (
     <div className="mb-4 rounded-xl bg-rail px-3.5 py-2.5 ring-1 ring-line">
-      <p className="text-xs text-muted">Milestone {idx}</p>
+      <p className="text-xs text-muted">Giai đoạn {idx}</p>
       <p className="font-semibold">{ms.title}</p>
       <p className="text-sm font-medium text-ink-2">{usdc(ms.amount)}</p>
     </div>
@@ -234,7 +234,7 @@ function RevisionDialog({ target, onClose }: { target: Target; onClose: () => vo
   );
 }
 
-/* ---------- Mở tranh chấp ---------- */
+/* ---------- Yêu cầu hỗ trợ ---------- */
 
 function DisputeDialog({ target, onClose }: { target: Target; onClose: () => void }) {
   const { state, dispatch } = useStore();
@@ -245,7 +245,7 @@ function DisputeDialog({ target, onClose }: { target: Target; onClose: () => voi
   return (
     <Modal
       open
-      title="Mở tranh chấp"
+      title="Yêu cầu hỗ trợ"
       onClose={onClose}
       footer={
         <>
@@ -266,16 +266,16 @@ function DisputeDialog({ target, onClose }: { target: Target; onClose: () => voi
               onClose();
             }}
           >
-            Mở tranh chấp
+            Gửi yêu cầu hỗ trợ
           </Button>
         </>
       }
     >
       <MilestoneLine t={target} />
       <p className="mb-3 rounded-xl bg-danger/10 px-3.5 py-2.5 text-sm text-[#ffb3b3] ring-1 ring-danger/30">
-        Milestone sẽ được tạm giữ. Hai bên có thể cung cấp bằng chứng trước khi Đội ngũ Nova đưa ra quyết định.
+        Giai đoạn sẽ được tạm giữ. Hai bên có thể bổ sung thông tin trước khi Đội ngũ Nova đề xuất phương án xử lý.
       </p>
-      <textarea rows={3} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} className={textarea} placeholder="Lý do tranh chấp, đối chiếu điều khoản nào?" aria-label="Lý do tranh chấp" />
+      <textarea rows={3} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} className={textarea} placeholder="Mô tả bất đồng và thỏa thuận cần đối chiếu" aria-label="Nội dung cần hỗ trợ" />
       {files.length > 0 && (
         <fieldset className="mt-3">
           <legend className="mb-1.5 text-sm font-medium text-ink-2">Đính kèm bằng chứng</legend>

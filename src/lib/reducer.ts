@@ -15,7 +15,7 @@ import type {
 } from "./types";
 
 export type PanelTab = "terms" | "milestones" | "files" | "evidence" | "dispute";
-export type ListFilter = "all" | "unread" | "replyn" | "review" | "dispute";
+export type ListFilter = "all" | "unread" | "replyn" | "tasks" | "files" | "review" | "dispute";
 
 export interface UiState {
   activeChatId: string | null;
@@ -52,6 +52,8 @@ export type Action =
   | { type: "SELECT_CHAT"; chatId: string | null }
   | { type: "SET_PANEL"; tab?: PanelTab; open?: boolean }
   | { type: "SET_FILTER"; filter: ListFilter }
+  | { type: "TOGGLE_PIN"; chatId: string }
+  | { type: "TOGGLE_MUTE"; chatId: string }
   | { type: "FLASH"; id: string | null }
   | { type: "SEND_TEXT"; chatId: string; text: string; senderId?: string; replyToId?: string }
   | { type: "SEND_FILE"; chatId: string; file: NewFile; senderId?: string; text?: string }
@@ -101,7 +103,7 @@ export const STATUS_LABEL: Record<MilestoneStatus, string> = {
   in_review: "Đang chờ nghiệm thu",
   revision_requested: "Yêu cầu sửa",
   ready_to_release: "Đủ điều kiện giải ngân",
-  disputed: "Đang tranh chấp",
+  disputed: "Đang được hỗ trợ",
   released_sim: "Đã giải ngân (mô phỏng)",
   refunded: "Quyết định hoàn tiền",
   split: "Quyết định chia tiền",
@@ -238,6 +240,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ui: {
           ...state.ui,
           activeChatId: id,
+          panelOpen: false,
           // mở workspace: panel tự chọn tab theo ngữ cảnh (tranh chấp mở → Tranh chấp, còn lại → Milestones)
           panelTab:
             conv?.workspaceId && conv.id !== state.ui.activeChatId
@@ -262,6 +265,30 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case "SET_FILTER":
       return { ...state, ui: { ...state.ui, filter: action.filter } };
+
+    case "TOGGLE_PIN": {
+      const conv = state.conversations[action.chatId];
+      if (!conv) return state;
+      return {
+        ...state,
+        conversations: {
+          ...state.conversations,
+          [conv.id]: { ...conv, pinned: !conv.pinned },
+        },
+      };
+    }
+
+    case "TOGGLE_MUTE": {
+      const conv = state.conversations[action.chatId];
+      if (!conv) return state;
+      return {
+        ...state,
+        conversations: {
+          ...state.conversations,
+          [conv.id]: { ...conv, muted: !conv.muted },
+        },
+      };
+    }
 
     case "FLASH":
       return { ...state, ui: { ...state.ui, flashId: action.id } };
@@ -423,7 +450,7 @@ export function reducer(state: AppState, action: Action): AppState {
           senderId: SYSTEM_ID,
           kind: "milestone",
           link: "milestones",
-          text: `Milestone ${i + 1} · ${m.title} đã được tạo`,
+          text: `Giai đoạn ${i + 1} · ${m.title} đã được tạo`,
           refs: { workspaceId: action.wsId, milestoneId: m.id },
         });
       }
@@ -439,7 +466,7 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId: wsChatId(w.id),
         senderId: SYSTEM_ID,
         kind: "system",
-        text: "Điều khoản đã khóa",
+        text: "Thỏa thuận đã xác nhận",
         link: "terms",
         refs: { workspaceId: w.id },
       });
@@ -447,7 +474,7 @@ export function reducer(state: AppState, action: Action): AppState {
       const [s2] = addEvidence(s1, w.id, {
         type: "terms_locked",
         actorId: SYSTEM_ID,
-        title: "Điều khoản đã khóa",
+        title: "Thỏa thuận đã xác nhận",
         description: `${w.milestones.length} milestone · tổng ${total.toLocaleString("en-US")} USDC · ${
           w.feeTier === "BASIC" ? "BASIC 7%" : "ADVANCED 10%"
         } (mô phỏng). Hai bên đã xác nhận, không thể sửa đơn phương.`,
@@ -474,7 +501,7 @@ export function reducer(state: AppState, action: Action): AppState {
         type: "funded",
         actorId: w.businessId,
         title: "Business đã kích hoạt ký quỹ mô phỏng",
-        description: `Milestone ${milestoneIndex(s1, w.id, m.id)} · ${m.amount.toLocaleString("en-US")} USDC — Đã ký quỹ (mô phỏng)`,
+        description: `Giai đoạn ${milestoneIndex(s1, w.id, m.id)} · ${m.amount.toLocaleString("en-US")} USDC · Đã ký quỹ (mô phỏng)`,
         milestoneId: m.id,
         messageId: msg.id,
       });
@@ -547,7 +574,7 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId: wsChatId(w.id),
         senderId: SYSTEM_ID,
         kind: "system",
-        text: `${s.users[w.businessId].short} đã yêu cầu sửa Milestone ${milestoneIndex(s, w.id, m.id)} · lượt ${m.revisionsUsed + 1}/${m.revisionLimit}`,
+        text: `${s.users[w.businessId].short} đã yêu cầu sửa giai đoạn ${milestoneIndex(s, w.id, m.id)} · lượt ${m.revisionsUsed + 1}/${m.revisionLimit}`,
         link: "milestones",
         refs: { workspaceId: w.id, milestoneId: m.id },
       });
@@ -572,7 +599,7 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId: wsChatId(w.id),
         senderId: SYSTEM_ID,
         kind: "system",
-        text: `${s.users[w.businessId].short} đã nghiệm thu Milestone ${milestoneIndex(s, w.id, m.id)} · Đủ điều kiện giải ngân`,
+        text: `${s.users[w.businessId].short} đã nghiệm thu giai đoạn ${milestoneIndex(s, w.id, m.id)} · Đủ điều kiện giải ngân`,
         link: "milestones",
         refs: { workspaceId: w.id, milestoneId: m.id },
       });
@@ -580,7 +607,7 @@ export function reducer(state: AppState, action: Action): AppState {
         type: "accepted",
         actorId: w.businessId,
         title: "Business đã nghiệm thu",
-        description: `Milestone ${milestoneIndex(s1, w.id, m.id)} đạt tiêu chí · Đủ điều kiện giải ngân`,
+        description: `Giai đoạn ${milestoneIndex(s1, w.id, m.id)} đạt tiêu chí · Đủ điều kiện giải ngân`,
         milestoneId: m.id,
         messageId: msg.id,
       });
@@ -648,7 +675,7 @@ export function reducer(state: AppState, action: Action): AppState {
       const [s2] = addEvidence(s, w.id, {
         type: "dispute_opened",
         actorId: action.openedBy,
-        title: "Mở tranh chấp",
+        title: "Yêu cầu hỗ trợ",
         description: `${opener.short} (${action.openedBy === w.businessId ? "Business" : "Freelancer"}): “${action.reason}”`,
         milestoneId: m.id,
         messageId: msg.id,
@@ -669,7 +696,7 @@ export function reducer(state: AppState, action: Action): AppState {
         chatId: wsChatId(w.id),
         senderId: NOVA_TEAM_ID,
         kind: "system",
-        text: `Đội ngũ Nova đang review tranh chấp Milestone ${milestoneIndex(s, w.id, d.milestoneId)}`,
+        text: `Đội ngũ Nova đang đối chiếu thông tin cho giai đoạn ${milestoneIndex(s, w.id, d.milestoneId)}`,
         link: "dispute",
         refs: { workspaceId: w.id, milestoneId: d.milestoneId, disputeId: d.id },
       });

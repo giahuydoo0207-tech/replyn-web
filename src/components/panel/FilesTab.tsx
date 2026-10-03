@@ -31,7 +31,7 @@ export function FilesTab({ ws }: { ws: Workspace }) {
             <div className="mt-1.5 flex items-center justify-between gap-2 text-[12px]">
               <span className="text-ink-2">
                 {state.users[a.uploadedBy]?.short} · {ddmmyyyy(a.at)} {hhmm(a.at)}
-                {idx > 0 && ` · Milestone ${idx}`}
+                {idx > 0 && ` · Giai đoạn ${idx}`}
               </span>
               {ev && (
                 <button

@@ -17,10 +17,10 @@ const isNotice = (m: Message) => NOTICE_KINDS.includes(m.kind) || m.senderId ===
 
 const LINK_LABEL: Record<PanelTab, string> = {
   terms: "Xem điều khoản",
-  milestones: "Xem milestones",
+  milestones: "Xem tiến độ",
   files: "Xem file",
   evidence: "Xem bằng chứng",
-  dispute: "Xem tranh chấp",
+  dispute: "Xem hỗ trợ",
 };
 
 export function MessageList({ conv, messages }: { conv: Conversation; messages: Message[] }) {
@@ -237,7 +237,7 @@ function ProposalCard({ m }: { m: Message }) {
         <dl className="divide-y divide-white/5 rounded-lg bg-black/20 text-[13px]">
           <Row k="Dự án" v={p.projectTitle} />
           <Row k="Tổng giá trị" v={usdc(total)} />
-          <Row k="Milestone" v={`${p.milestones.length} giai đoạn`} />
+          <Row k="Giai đoạn" v={`${p.milestones.length} giai đoạn`} />
           <Row k="Gói phí" v={FEE_LABEL[p.feeTier]} />
         </dl>
         <p className="border-l-2 border-white/15 pl-2.5 text-[13px] italic text-ink-2">

@@ -19,24 +19,25 @@ export function StatusHeader({ ws }: { ws: Workspace }) {
 
   return (
     <section aria-label="Trạng thái dự án" className="shrink-0 border-b border-white/5 px-4 pb-3 pt-3.5">
-      <div className="flex items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         {conv && <Avatar {...conv.avatar} size={40} />}
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-semibold leading-tight">{ws.title}</h3>
-          <p className="mt-0.5 truncate text-[13px] text-ink-2">
+        <div className="min-w-[140px] flex-1">
+          <h3 className="break-words text-[15px] font-semibold leading-tight">{ws.title}</h3>
+          <p className="mt-0.5 text-[13px] text-ink-2">
             {state.users[ws.businessId].name} · {state.users[ws.freelancerId].name}
           </p>
         </div>
         <div className="shrink-0 text-right">
           <p className="text-[15px] font-semibold">{usdc(total)}</p>
-          <p className="text-[11px] text-muted">{ws.feeTier === "BASIC" ? "BASIC 7%" : "ADVANCED 10%"} (mô phỏng)</p>
+          <p className="text-[11px] text-muted">{ws.feeTier === "BASIC" ? "CƠ BẢN 7%" : "NÂNG CAO 10%"} (mô phỏng)</p>
         </div>
       </div>
 
-      <p className="mt-2.5 text-[13px] text-ink-2">
-        {ws.milestones.length} milestone · {inReview} đang chờ nghiệm thu ·{" "}
-        <span className={cx(disputes > 0 && "text-[#ff8f8f]")}>{disputes} tranh chấp</span>
-      </p>
+      <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-ink-2">
+        <span>{ws.milestones.length} giai đoạn</span>
+        <span>{inReview} chờ nghiệm thu</span>
+        <span className={cx(disputes > 0 && "text-[#ff8f8f]")}>{disputes} yêu cầu hỗ trợ</span>
+      </div>
 
       {next.tab ? (
         <button
