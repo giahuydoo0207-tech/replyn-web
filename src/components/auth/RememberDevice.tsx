@@ -2,9 +2,16 @@
 
 import { useSyncExternalStore } from "react";
 
-/** Mock: chỉ lưu lựa chọn "ghi nhớ thiết bị", không lưu Nova ID, Nova Key hay token. */
+/**
+ * Chỉ lưu lựa chọn "ghi nhớ thiết bị", không lưu Nova ID, Nova Key hay token.
+ * Với Nova ID, lựa chọn này chỉ quyết định cookie phiên còn lại sau khi đóng trình duyệt hay không.
+ */
 const KEY = "replyn.auth.remember-device";
 const listeners = new Set<() => void>();
+
+export function readRememberDevice(): boolean {
+  return read();
+}
 
 function read(): boolean {
   try {

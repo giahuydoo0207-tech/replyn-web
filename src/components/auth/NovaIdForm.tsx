@@ -3,64 +3,82 @@
 import { CircleAlert, CircleHelp, Eye, EyeOff, IdCard, KeyRound, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
-  DEMO_NOVA_ID_LOGIN,
-  normalizeNovaId,
-  NOVA_ID_PATTERN,
-  verifyNovaId,
-  type NovaDemoAccount,
-} from "@/lib/auth/mockNova";
+  loginWithNovaBusiness,
+  normalizeBusinessNovaId,
+  NOVA_BUSINESS_ID_PATTERN,
+  NOVA_KEY_PATTERN,
+  type BusinessIdentity,
+  type BusinessLoginResult,
+} from "@/lib/auth/novaBusinessClient";
 import { cx } from "../ui";
 import { focusRing, GuideSteps, linkClass, Spinner } from "./marks";
-import { RememberDevice } from "./RememberDevice";
+import { readRememberDevice, RememberDevice } from "./RememberDevice";
 
 type FormStatus = "idle" | "loading" | "error";
 type FieldErrors = { id?: string; key?: string };
+type FailureReason = Extract<BusinessLoginResult, { ok: false }>["reason"];
 
 const inputBox =
   "flex h-11 items-center gap-2.5 rounded-lg border bg-(--na-bg) px-3 transition-colors focus-within:border-(--na-accent) focus-within:ring-2 focus-within:ring-(--na-accent)/25";
 
-const GUIDE = ["Mở trang cá nhân Nova Business.", "Sao chép Nova ID.", "Dùng Nova Key để xác minh thiết bị."];
+const GUIDE = ["Mở Nova Business → Thông tin cá nhân.", "Sao chép Nova ID.", "Dùng Nova Key đã lưu khi tạo khóa."];
+
+const FAILURE_MESSAGE: Record<FailureReason, string> = {
+  invalid_credentials:
+    "Nova ID hoặc Nova Key không đúng, hoặc Nova Key đã bị thu hồi. Tạo Nova Key mới trong Nova Business rồi thử lại.",
+  invalid_input: "Nova ID hoặc Nova Key không đúng định dạng.",
+  unavailable: "Chưa kết nối được Nova Business. Vui lòng thử lại sau ít phút.",
+  not_configured: "Đăng nhập bằng Nova ID tạm thời chưa khả dụng trên Replyn.",
+};
 
 /**
  * Nova ID: thao tác bên trái, giải thích bên phải (mobile: form trước, hướng dẫn rút gọn sau).
- * Nova ID là định danh công khai nên luôn đi cùng Nova Key (mã bí mật hoặc dùng một lần).
- * Nova Key chỉ nằm trong state của form, không bao giờ ghi vào localStorage.
+ * Nova ID là định danh công khai nên luôn đi cùng Nova Key bí mật. Server Replyn xác minh cặp này với
+ * Nova Business; Nova Key chỉ nằm trong state của form lúc nhập và bị xóa sau mỗi lần gửi.
  */
-export function NovaIdForm({ onSuccess }: { onSuccess: (account: NovaDemoAccount) => void }) {
+export function NovaIdForm({ onSuccess }: { onSuccess: (identity: BusinessIdentity) => void }) {
   const ids = useId();
   const [novaId, setNovaId] = useState("");
   const [novaKey, setNovaKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState<FormStatus>("idle");
+  const [failure, setFailure] = useState<FailureReason>("invalid_credentials");
   const [errors, setErrors] = useState<FieldErrors>({});
   const idRef = useRef<HTMLInputElement>(null);
   const keyRef = useRef<HTMLInputElement>(null);
+  // chặn gửi lặp ngay cả trước khi state "loading" kịp render
+  const submitting = useRef(false);
   const loading = status === "loading";
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (loading) return;
-    const id = normalizeNovaId(novaId);
+    if (submitting.current) return;
+    const id = normalizeBusinessNovaId(novaId);
     setNovaId(id);
     const next: FieldErrors = {};
     if (!id) next.id = "Nhập Nova ID của bạn.";
-    else if (!NOVA_ID_PATTERN.test(id)) next.id = "Nova ID có dạng NVB-XXXXX (5 ký tự chữ hoặc số).";
-    if (!novaKey.trim()) next.key = "Nhập Nova Key.";
+    else if (!NOVA_BUSINESS_ID_PATTERN.test(id)) next.id = "Nova ID có dạng NVB-XXXXXXXX (8 ký tự chữ hoặc số).";
+    if (!novaKey) next.key = "Nhập Nova Key.";
+    else if (!NOVA_KEY_PATTERN.test(novaKey)) next.key = "Nova Key bắt đầu bằng nvk_ và có 47 ký tự.";
     setErrors(next);
     if (next.id || next.key) {
       setStatus("idle");
       (next.id ? idRef : keyRef).current?.focus();
       return;
     }
+    submitting.current = true;
     setStatus("loading");
-    const res = await verifyNovaId(id, novaKey);
-    if (res.ok) {
-      setNovaKey("");
-      onSuccess(res.account);
+    const result = await loginWithNovaBusiness(id, novaKey, readRememberDevice());
+    // Nova Key không được giữ lại sau khi gửi, dù thành công hay thất bại
+    setNovaKey("");
+    if (result.ok) {
+      // form giữ trạng thái khóa trong lúc chuyển sang Replyn
+      onSuccess(result.identity);
       return;
     }
+    submitting.current = false;
+    setFailure(result.reason);
     setStatus("error");
-    setNovaKey("");
     keyRef.current?.focus();
   };
 
@@ -70,7 +88,7 @@ export function NovaIdForm({ onSuccess }: { onSuccess: (account: NovaDemoAccount
         {status === "error" && (
           <p role="alert" className="na-fade flex items-start gap-2 rounded-lg bg-(--na-danger)/12 px-3 py-2.5 text-[14px] text-(--na-danger)">
             <CircleAlert size={17} className="mt-px shrink-0" aria-hidden />
-            Nova ID hoặc Nova Key không đúng, hoặc Nova Key đã hết hạn. Lấy Nova Key mới trong ứng dụng Nova rồi thử lại.
+            {FAILURE_MESSAGE[failure]}
           </p>
         )}
 
@@ -89,8 +107,8 @@ export function NovaIdForm({ onSuccess }: { onSuccess: (account: NovaDemoAccount
                 setNovaId(e.target.value.replace(/\s+/g, "").toUpperCase());
                 if (errors.id) setErrors((x) => ({ ...x, id: undefined }));
               }}
-              onBlur={() => setNovaId((v) => normalizeNovaId(v))}
-              placeholder="Ví dụ: NVB-7K29Q"
+              onBlur={() => setNovaId((v) => normalizeBusinessNovaId(v))}
+              placeholder="NVB-XXXXXXXX"
               autoComplete="username"
               autoCapitalize="characters"
               spellCheck={false}
@@ -119,8 +137,8 @@ export function NovaIdForm({ onSuccess }: { onSuccess: (account: NovaDemoAccount
                 setNovaKey(e.target.value);
                 if (errors.key) setErrors((x) => ({ ...x, key: undefined }));
               }}
-              placeholder="Nhập Nova Key"
-              autoComplete="one-time-code"
+              placeholder="nvk_…"
+              autoComplete="off"
               spellCheck={false}
               disabled={loading}
               aria-invalid={!!errors.key}
@@ -159,28 +177,6 @@ export function NovaIdForm({ onSuccess }: { onSuccess: (account: NovaDemoAccount
             "Tiếp tục với Nova ID"
           )}
         </button>
-
-        <details className="text-[12px] text-(--na-muted)">
-          <summary className={cx("w-fit cursor-pointer rounded hover:text-(--na-ink-2)", focusRing)}>Tài khoản demo</summary>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span>
-              Nova ID <code className="font-mono">{DEMO_NOVA_ID_LOGIN.novaId}</code> · Nova Key{" "}
-              <code className="font-mono">{DEMO_NOVA_ID_LOGIN.novaKey}</code> (Business)
-            </span>
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => {
-                setNovaId(DEMO_NOVA_ID_LOGIN.novaId);
-                setNovaKey(DEMO_NOVA_ID_LOGIN.novaKey);
-                setErrors({});
-              }}
-              className={cx("rounded text-(--na-ink-2) underline underline-offset-2 hover:text-(--na-ink)", focusRing)}
-            >
-              Điền dữ liệu demo
-            </button>
-          </p>
-        </details>
       </form>
 
       <aside aria-label="Hướng dẫn Nova ID" className="border-t border-(--na-border) pt-6 md:border-l md:border-t-0 md:pl-10 md:pt-0">
@@ -246,8 +242,8 @@ function HelpPopover() {
               <X size={15} />
             </button>
           </div>
-          <p className="mt-1">Nova Business → Trang cá nhân → cạnh @handle</p>
-          <p className="mt-1.5 text-(--na-muted)">Nova ID là tính năng đang được bổ sung vào hồ sơ doanh nghiệp.</p>
+          <p className="mt-1">Nova Business → Thông tin cá nhân → Định danh Nova</p>
+          <p className="mt-1.5 text-(--na-muted)">Nova Key chỉ hiển thị một lần khi tạo. Nếu làm mất, hãy tạo khóa mới ở mục Khóa kết nối Nova.</p>
         </div>
       )}
     </div>

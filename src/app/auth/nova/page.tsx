@@ -11,7 +11,7 @@ export const viewport: Viewport = {
   themeColor: "#0c1317",
 };
 
-// NovaAuthPage đọc query handoff bằng useSearchParams nên cần Suspense khi static export
+// NovaAuthPage đọc query handoff bằng useSearchParams nên cần Suspense khi prerender
 export default function NovaAuthRoute() {
   return (
     <Suspense fallback={<div className="nova-auth h-dvh" />}>
