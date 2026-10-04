@@ -246,7 +246,8 @@ function HelpPopover() {
               <X size={15} />
             </button>
           </div>
-          <p className="mt-1">Mở Nova Business → Trang cá nhân → Thông tin tài khoản → Nova ID.</p>
+          <p className="mt-1">Nova Business → Trang cá nhân → cạnh @handle</p>
+          <p className="mt-1.5 text-(--na-muted)">Nova ID là tính năng đang được bổ sung vào hồ sơ doanh nghiệp.</p>
         </div>
       )}
     </div>
