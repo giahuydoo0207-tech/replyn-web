@@ -260,3 +260,78 @@ body {
     animation: none;
   }
 }
+
+/* ---------- Đăng nhập Replyn bằng Nova: dark theme vàng–đen của Replyn, chỉ áp trong .nova-auth ---------- */
+.nova-auth {
+  --na-bg: var(--app);
+  --na-surface: var(--sidebar);
+  --na-subtle: var(--panel);
+  --na-raised: var(--elevated);
+  --na-border: var(--border);
+  --na-ink: var(--text);
+  --na-ink-2: var(--text-2);
+  --na-muted: var(--muted);
+  /* vàng chỉ cho logo, tab active, focus, nút chính, trạng thái quan trọng */
+  --na-accent: var(--yellow);
+  --na-accent-hover: #f7d064;
+  --na-on-accent: #0b0d0a;
+  --na-success: var(--success);
+  --na-danger: var(--danger);
+  /* QR luôn tối trên nền trắng để quét được */
+  --na-qr-ink: #0b141a;
+  color-scheme: dark;
+  background: var(--na-bg);
+  color: var(--na-ink);
+}
+
+/* scan line rất nhẹ khi QR sẵn sàng quét */
+@keyframes na-scan {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 0.7; }
+  90% { opacity: 0.7; }
+  100% { transform: translateY(var(--na-scan-distance, 220px)); opacity: 0; }
+}
+.na-scan-line {
+  position: absolute;
+  inset-inline: 8%;
+  top: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--na-accent);
+  animation: na-scan 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes na-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.na-fade { animation: na-fade 200ms ease-out; }
+
+@keyframes na-check-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@keyframes na-check-pop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.na-check { animation: na-check-pop 220ms ease-out; }
+.na-check path { stroke-dasharray: 24; animation: na-check-draw 320ms 120ms ease-out both; }
+
+/*
+ * Hai panel Nova ID / Mã QR nằm chồng trong cùng một ô grid trên desktop, nên khung ngoài luôn cao bằng
+ * panel cao hơn và không nhảy kích thước khi đổi tab. Crossfade + dịch ngang 10px đối xứng:
+ * Nova ID vào từ trái, QR vào từ phải. Dưới 768px chỉ hiện panel đang chọn (một cột, cuộn dọc).
+ */
+.na-panels { display: grid; }
+.na-panel {
+  grid-area: 1 / 1;
+  transition: opacity 200ms ease-out, transform 200ms ease-out, visibility 0s linear 0s;
+}
+.na-panel[data-active="false"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 200ms ease-out, transform 200ms ease-out, visibility 0s linear 200ms;
+}
+.na-panel[data-side="left"][data-active="false"] { transform: translateX(-10px); }
+.na-panel[data-side="right"][data-active="false"] { transform: translateX(10px); }
+@media (max-width: 767.98px) {
+  .na-panel[data-active="false"] { display: none; }
+  .na-panel[data-active="true"] { animation: na-slide-left 200ms ease-out; }
+  .na-panel[data-side="right"][data-active="true"] { animation-name: na-slide-right; }
+}
+@keyframes na-slide-left { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+@keyframes na-slide-right { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
