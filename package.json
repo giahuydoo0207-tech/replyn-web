@@ -8,11 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "screens": "node scripts/screens.mjs"
+    "screens": "node scripts/screens.mjs",
+    "test:login": "node scripts/nova-login.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.49.0",
     "next": "16.3.8",
+    "qrcode-generator": "^2.0.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -23,6 +25,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "jsqr": "^1.4.0",
     "playwright-core": "^1.63.0",
     "tailwindcss": "^4",
     "typescript": "^5"

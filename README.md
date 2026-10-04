@@ -6,10 +6,23 @@ Web demo UI/UX của Replyn: chat + workspace + milestone + bằng chứng dự 
 mật độ tin nhắn học theo Telegram, theme vàng-đen. **Toàn bộ dữ liệu là mock, chưa có backend.**
 Cấp vốn, giải ngân và phí vận hành đều là mô phỏng. Replyn không custody tiền thật.
 
+## Trạng thái tích hợp với Nova
+
+- Nova Business và Nova Mobile dùng chung một backend Spring Boot/PostgreSQL.
+- Nova Mobile có đăng nhập thật (email/OTP, token lưu an toàn trên thiết bị).
+- Nova Business hiện là demo dưới một organization mẫu, **chưa có phiên đăng nhập người dùng doanh nghiệp**.
+- Màn “Tiếp tục với Nova” của Replyn (`/auth/nova`, Nova ID / Mã QR) là **prototype frontend**: xác thực được mô phỏng
+  trên trình duyệt, chưa gọi Nova hay Supabase.
+- Tin nhắn Nova CHAT trong bản nộp là **dữ liệu seed**.
+- Tích hợp Supabase, signed handoff và QR pairing là **kiến trúc tiếp theo**, chưa triển khai.
+- Ký quỹ, phí và giải ngân đều là **mô phỏng**; Replyn không giữ tiền thật.
+
+Kiến trúc, ERD và integration contract dự kiến: [docs/architecture/nova-supabase-integration.md](docs/architecture/nova-supabase-integration.md).
+
 ## Chạy
 
 ```powershell
-cd D:\replyn-web
+cd replyn-web
 npm install
 npm run dev          # http://localhost:3000
 npm run typecheck; npm run lint; npm run build
@@ -20,6 +33,29 @@ Chụp màn hình các cảnh demo và chạy thử luồng chính (cần `npm r
 ```powershell
 $env:BASE_URL="http://localhost:3000"; npm run screens   # ảnh lưu ở ./screenshots
 ```
+
+## Đăng nhập Replyn bằng Nova (prototype frontend)
+
+Route `/auth/nova`, ví dụ `/auth/nova?handoff=demo-handoff-01&conversation=nova-khoa`. Đây là **prototype frontend**:
+toàn bộ là mô phỏng phía trình duyệt, chưa gọi Nova API, Supabase Auth hay OAuth. Thiết kế thật (signed handoff,
+QR pairing, Supabase) nằm trong [tài liệu kiến trúc](docs/architecture/nova-supabase-integration.md).
+
+- **Nova ID** (Business): Nova ID là định danh công khai nên luôn đi kèm **Nova Key**. Cặp demo nằm trong
+  `src/lib/auth/mockNova.ts` (`NVB-7K29Q` / `DEMO-2026`), không phải secret production. Nova Key không được lưu.
+- **Mã QR** (Nova Mobile, demo đăng nhập là Freelancer): QR chứa URL demo, không chứa token. Mục *Điều khiển demo*
+  dưới mã thay cho điện thoại thật: `ready → scanned → approved`, làm mã hết hạn, lỗi tạo mã.
+- Đăng nhập xong, `src/lib/auth/demoSession.ts` ghi vào sessionStorage của tab: vai trò, cuộc trò chuyện cần mở
+  và một thông báo một lần. Màn chat đọc kết quả này một lần rồi chạy như cũ (reducer mock trong bộ nhớ):
+  có `handoff` + `conversation` thì mở thẳng cuộc trò chuyện (nếu tài khoản là thành viên) và hiện
+  "Đã liên kết cuộc trò chuyện từ Nova."; không có thì mở danh sách chat. `returnTo` chỉ nhận đường dẫn nội bộ.
+- Màn chat chính chưa bắt buộc đăng nhập, để giữ nguyên luồng demo hiện tại.
+- **Backend thật phải xác minh signed handoff** (chữ ký, hạn dùng, người nhận) ở server, không tin query trên URL.
+
+```powershell
+$env:BASE_URL="http://localhost:3000"; npm run test:login   # ảnh login-*.png lưu ở ./screenshots
+```
+
+Test giải mã lại ảnh chụp QR bằng `jsqr` (devDependency) để chắc mã vẫn quét được khi có logo ở giữa.
 
 ## IA: tách lớp Chat và lớp Protection
 

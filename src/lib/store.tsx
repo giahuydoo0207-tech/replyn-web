@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useReducer, useState, type Dispatch, type ReactNode } from "react";
+import { consumePendingLogin, readTabRole } from "./auth/demoSession";
 import { me, reducer, type Action, type AppState } from "./reducer";
 import { initialState } from "./seed";
 
@@ -8,7 +9,36 @@ const StoreCtx = createContext<{ state: AppState; dispatch: Dispatch<Action> } |
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
-  return <StoreCtx.Provider value={{ state, dispatch }}>{children}</StoreCtx.Provider>;
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Đăng nhập Nova (mock): áp vai trò của tab và mở đúng cuộc trò chuyện một lần sau khi mount
+  useEffect(() => {
+    const role = readTabRole();
+    if (role) dispatch({ type: "SET_ROLE", role });
+    const pending = consumePendingLogin();
+    if (!pending) return;
+    dispatch({ type: "SELECT_CHAT", chatId: pending.conversationId });
+    const message = pending.notice;
+    // hiện sau lần render đầu; không hủy trong cleanup vì StrictMode chạy effect hai lần mà pending chỉ đọc được một lần
+    if (message) window.setTimeout(() => setNotice(message), 0);
+  }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [notice]);
+
+  return (
+    <StoreCtx.Provider value={{ state, dispatch }}>
+      {children}
+      {notice && (
+        <div role="status" className="pointer-events-none fixed bottom-4 left-1/2 z-[60] -translate-x-1/2">
+          <span className="rounded-full bg-panel px-4 py-2 text-sm font-medium text-ink shadow-2xl ring-1 ring-line">{notice}</span>
+        </div>
+      )}
+    </StoreCtx.Provider>
+  );
 }
 
 export function useStore() {
