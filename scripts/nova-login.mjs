@@ -1,20 +1,87 @@
-// Kiểm thử màn đăng nhập Replyn bằng Nova (mock) + chụp ảnh desktop/mobile cả hai tab.
-// Chạy khi `npm run dev` đang chạy: $env:BASE_URL="http://localhost:3000"; npm run test:login
+// Kiểm thử màn đăng nhập Replyn bằng Nova + chụp ảnh desktop/mobile cả hai tab.
+// Nova ID đi qua server Replyn thật (route + cookie phiên); Nova Business được thay bằng máy chủ giả trên máy.
+// Chạy sau `npm run build`: npm run test:login  (script tự chạy `next start` với biến môi trường kiểm thử)
+// Hoặc trỏ tới server đang chạy với NOVA_API_URL=http://127.0.0.1:3299: $env:BASE_URL="http://localhost:3000"; npm run test:login
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
+import { createServer } from "node:http";
 import { chromium } from "playwright-core";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3210";
 const LOGIN = `${BASE}/auth/nova`;
+const NOVA_PORT = 3299;
+
+/* Nova Business giả: không phải dữ liệu thật, Key sinh ngẫu nhiên cho mỗi lần chạy. */
+const NOVA_ID = "NVB-TEST2345";
+const NOVA_KEY = `nvk_${randomBytes(32).toString("base64url")}`;
+const WRONG_KEY = `nvk_${randomBytes(32).toString("base64url")}`;
+const DOWN_ID = "NVB-FAKE5ERR"; // Nova trả 500 cho ID này
+const novaCalls = [];
+const fakeNova = createServer((req, res) => {
+  let raw = "";
+  req.on("data", (c) => (raw += c));
+  req.on("end", () => {
+    const body = JSON.parse(raw || "{}");
+    novaCalls.push(body.novaId);
+    const reply = (status, payload) => {
+      res.writeHead(status, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(payload));
+    };
+    if (req.url !== "/api/v1/nova-credentials/verify") return reply(404, {});
+    if (body.novaId === DOWN_ID) return reply(500, { error: "internal" });
+    if (body.novaId !== NOVA_ID || body.novaKey !== NOVA_KEY) return reply(401, { message: "Nova ID or Nova Key is invalid." });
+    // chậm một chút để kiểm tra trạng thái loading và chống gửi lặp
+    setTimeout(
+      () =>
+        reply(200, {
+          verified: true,
+          subjectType: "ORGANIZATION",
+          subjectId: "0f8fad5b-d9cb-469f-a165-70867728950e",
+          publicNovaId: NOVA_ID,
+          displayName: "Mộc Coffee Studio",
+          verifiedAt: new Date().toISOString(),
+        }),
+      600,
+    );
+  });
+});
+await new Promise((resolve) => fakeNova.listen(NOVA_PORT, "127.0.0.1", resolve));
+
+/** Không có BASE_URL: tự chạy bản build production với cấu hình kiểm thử. */
+let server = null;
+if (!process.env.BASE_URL) {
+  server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", "3210"], {
+    env: {
+      ...process.env,
+      NOVA_API_URL: `http://127.0.0.1:${NOVA_PORT}`,
+      REPLYN_SESSION_SECRET: randomBytes(48).toString("base64url"),
+    },
+    stdio: "ignore",
+  });
+  for (let i = 0; ; i++) {
+    try {
+      if ((await fetch(LOGIN)).ok) break;
+    } catch {
+      // chưa sẵn sàng
+    }
+    if (i > 60) throw new Error("next start không khởi động được (đã chạy npm run build chưa?)");
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
 mkdirSync("screenshots", { recursive: true });
 const browser = await chromium.launch({ channel: "chrome" });
 const errors = [];
+// 401/503 (Nova) và 500 (đăng xuất lỗi giả lập) là phản hồi mong đợi; trình duyệt vẫn ghi chúng ra console
+const expectedHttpError = /Failed to load resource: the server responded with a status of (401|500|503)/;
 
 async function open(url, viewport = { width: 1440, height: 900 }) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+  page.on("console", (m) => { if (m.type() === "error" && !expectedHttpError.test(m.text())) errors.push(m.text()); });
   await page.goto(url);
   await page.getByRole("heading", { name: "Tiếp tục với Nova" }).waitFor();
   return page;
@@ -89,13 +156,17 @@ try {
   const idInput = page.getByRole("textbox", { name: "Nova ID", exact: true });
   await idInput.fill("abc");
   await submit.click();
-  await visible(page.getByText(/Nova ID có dạng NVB-XXXXX/));
-  await idInput.fill("  nvb 7k29q ");
+  await visible(page.getByText(/Nova ID có dạng NVB-XXXXXXXX/));
+  await idInput.fill("NVB-7K29Q"); // ID demo 5 ký tự cũ không còn hợp lệ
+  await submit.click();
+  await visible(page.getByText(/Nova ID có dạng NVB-XXXXXXXX/));
+  await idInput.fill("  nvb test 2345 ");
   await idInput.blur();
-  assert.equal(await idInput.inputValue(), "NVB-7K29Q", "Tự trim và chuẩn hóa Nova ID");
-  console.log("ok  Validation: thiếu ID, thiếu Key, sai định dạng, chuẩn hóa");
+  assert.equal(await idInput.inputValue(), NOVA_ID, "Tự trim và chuẩn hóa Nova ID");
+  assert.equal(await page.getByText("Tài khoản demo").count(), 0, "Không còn tài khoản demo cho Nova ID");
+  console.log("ok  Validation: thiếu ID, thiếu Key, ID 5 ký tự cũ, sai định dạng, chuẩn hóa");
 
-  /* 3. Hiện/ẩn Nova Key, sai key, popover trợ giúp */
+  /* 3. Hiện/ẩn Nova Key, Key sai định dạng, sai Key (401), Nova lỗi, popover trợ giúp */
   const keyInput = page.getByLabel("Nova Key", { exact: true });
   await keyInput.fill("SAI-KEY");
   assert.equal(await keyInput.getAttribute("type"), "password");
@@ -104,27 +175,107 @@ try {
   await page.getByRole("button", { name: "Ẩn Nova Key" }).click();
   assert.equal(await keyInput.getAttribute("type"), "password");
   await keyInput.press("Enter");
-  await visible(page.getByRole("button", { name: "Đang xác thực…" }), 2000);
+  await visible(page.getByText("Nova Key bắt đầu bằng nvk_ và có 47 ký tự."));
+  assert.equal(novaCalls.length, 0, "Key sai định dạng không được gửi đi");
+  await keyInput.fill(WRONG_KEY);
+  await keyInput.press("Enter");
   await visible(page.getByRole("alert").filter({ hasText: "không đúng" }));
   assert.equal(await keyInput.inputValue(), "", "Xóa Nova Key sau khi sai");
-  assert.ok(!(await page.evaluate(() => JSON.stringify(localStorage)).then((s) => s.includes("SAI-KEY"))), "Không lưu Nova Key");
+  await idInput.fill(DOWN_ID);
+  await keyInput.fill(WRONG_KEY);
+  await keyInput.press("Enter");
+  await visible(page.getByRole("alert").filter({ hasText: "Chưa kết nối được Nova Business" }));
+  assert.equal(await keyInput.inputValue(), "", "Xóa Nova Key khi Nova lỗi");
   await page.getByRole("button", { name: "Nova ID của tôi ở đâu?" }).click();
   await visible(page.getByRole("dialog", { name: "Tìm Nova ID" }));
   await page.keyboard.press("Escape");
   assert.equal(await page.getByRole("dialog", { name: "Tìm Nova ID" }).count(), 0, "Escape đóng trợ giúp");
-  console.log("ok  Hiện/ẩn Key, lỗi sai/hết hạn, Escape đóng trợ giúp");
+  console.log("ok  Hiện/ẩn Key, Key sai định dạng, sai Key (401), Nova lỗi (503), Escape đóng trợ giúp");
 
-  /* 4. Đăng nhập Nova ID không có handoff → danh sách chat */
-  await keyInput.fill("DEMO-2026");
-  await keyInput.press("Enter");
+  /* 4. Đăng nhập Nova ID thật (qua server) không có handoff → danh sách chat, vai Business */
+  novaCalls.length = 0;
+  await idInput.fill(NOVA_ID);
+  await keyInput.fill(NOVA_KEY);
+  // gửi ba lần trong cùng một tick, trước khi React kịp khóa nút
+  await keyInput.evaluate((input) => {
+    const form = input.form;
+    form.requestSubmit();
+    form.requestSubmit();
+    form.requestSubmit();
+  });
+  await visible(page.getByRole("button", { name: "Đang xác thực…" }), 2000);
   await visible(page.getByText("Đã xác minh tài khoản Nova"));
+  await visible(page.getByText(/Mộc Coffee Studio/));
+  assert.equal(novaCalls.length, 1, "Chỉ gửi một yêu cầu xác minh dù nhấn nhiều lần");
   await page.waitForURL(`${BASE}/`);
   await visible(page.getByRole("region", { name: "Danh sách trò chuyện" }));
-  await visible(page.getByRole("button", { name: "Hồ sơ: Trần Thu Hà" }));
+  // khu vực tài khoản hiển thị danh tính đã xác minh, không phải tài khoản mẫu
+  const accountButton = page.getByRole("button", { name: "Hồ sơ: Mộc Coffee Studio" });
+  await visible(accountButton);
+  assert.equal(await page.getByRole("button", { name: "Hồ sơ: Trần Thu Hà" }).count(), 0, "Không dùng tên mẫu cho tài khoản");
   assert.equal(await page.getByRole("region", { name: /Trò chuyện:/ }).count(), 0, "Không có handoff: chưa mở chat nào");
+  const cookies = await page.context().cookies();
+  const session = cookies.find((c) => c.name === "replyn_session");
+  assert.ok(session, "Có cookie phiên");
+  assert.equal(session.httpOnly, true, "Cookie phiên là HttpOnly");
+  assert.equal(session.sameSite, "Lax");
+  assert.ok(!session.value.includes(NOVA_KEY.slice(4)), "Cookie không chứa Nova Key");
+  assert.equal(await page.evaluate(() => document.cookie.includes("replyn_session")), false, "JS không đọc được cookie phiên");
   const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }));
-  assert.ok(!stored.includes("DEMO-2026"), "Nova Key không nằm trong localStorage/sessionStorage sau khi đăng nhập");
-  console.log("ok  Nova ID không handoff → danh sách chat, vai Business");
+  assert.ok(!stored.includes(NOVA_KEY.slice(4)), "Nova Key không nằm trong localStorage/sessionStorage");
+  assert.ok(!stored.includes("replyn.auth.role"), "Vai Business không được ghi vào sessionStorage");
+
+  // refresh: vai Business đọc lại từ cookie qua /api/auth/session
+  await page.evaluate(() => sessionStorage.clear());
+  await page.reload();
+  await visible(accountButton);
+  const restored = await page.evaluate(() => fetch("/api/auth/session").then((r) => r.json()));
+  assert.equal(restored.authenticated, true);
+  assert.equal(restored.identity.publicNovaId, NOVA_ID);
+  assert.equal(restored.identity.role, "business");
+  assert.equal(restored.identity.subjectId, undefined, "Trình duyệt không nhận subjectId");
+
+  // menu tài khoản: danh tính đã xác minh + đăng xuất
+  await accountButton.click();
+  const card = page.getByRole("region", { name: "Tài khoản Nova Business" });
+  await visible(card.getByText("Mộc Coffee Studio"));
+  await visible(card.getByText(NOVA_ID));
+  await visible(card.getByText("Nova Business đã xác minh"));
+  const popover = page.locator("div.msg-in").filter({ has: card });
+  assert.equal(await popover.getByText("Trần Thu Hà").count(), 0, "Menu tài khoản không hiện tên mẫu");
+  await shot(page, "account-business-1440");
+  assert.ok(!(await page.content()).includes(NOVA_KEY.slice(4)), "Nova Key không nằm trong giao diện");
+
+  // đăng xuất lỗi: không giả vờ thành công
+  await page.route("**/api/auth/logout", (route) => route.fulfill({ status: 500, body: "" }));
+  await card.getByRole("button", { name: "Đăng xuất Nova" }).click();
+  await visible(card.getByRole("alert").filter({ hasText: "Chưa đăng xuất được" }));
+  assert.equal(page.url(), `${BASE}/`, "Vẫn ở lại khi đăng xuất lỗi");
+  const still = await page.evaluate(() => fetch("/api/auth/session").then((r) => r.json()));
+  assert.equal(still.authenticated, true, "Phiên vẫn còn khi đăng xuất lỗi");
+  await page.unroute("**/api/auth/logout");
+
+  // đăng xuất thành công: gọi đúng route, xóa phiên và quay về /auth/nova
+  const logoutRequest = page.waitForRequest((r) => r.url() === `${BASE}/api/auth/logout` && r.method() === "POST");
+  await card.getByRole("button", { name: "Đăng xuất Nova" }).click();
+  await logoutRequest;
+  await page.waitForURL(`${BASE}/auth/nova`);
+  await page.getByRole("heading", { name: "Tiếp tục với Nova" }).waitFor();
+  assert.equal((await page.context().cookies()).some((c) => c.name === "replyn_session"), false, "Đăng xuất xóa cookie");
+  const after = await page.evaluate(() => fetch("/api/auth/session").then((r) => r.json()));
+  assert.deepEqual(after, { authenticated: false });
+  const tabAuth = await page.evaluate(() => Object.keys(sessionStorage).filter((k) => k.startsWith("replyn.auth.role") || k.startsWith("replyn.auth.pending")));
+  assert.deepEqual(tabAuth, [], "Đăng xuất xóa metadata đăng nhập của tab");
+
+  // không có phiên thật: không có lệnh đăng xuất Nova
+  await page.goto(`${BASE}/`);
+  const demoAccount = page.getByRole("button", { name: "Hồ sơ: Trần Thu Hà" });
+  await visible(demoAccount);
+  await demoAccount.click();
+  await visible(page.getByText("Xem với vai trò"));
+  assert.equal(await page.getByRole("button", { name: "Đăng xuất Nova" }).count(), 0, "Không có phiên: không có nút đăng xuất");
+  assert.equal(await page.getByText("Nova Business đã xác minh").count(), 0);
+  console.log("ok  Nova ID thật → cookie HttpOnly, chống gửi lặp, refresh giữ danh tính, menu tài khoản, đăng xuất lỗi/thành công");
 
   /* 5. QR hết hạn → làm mới; scanned → approved; có handoff → mở đúng conversation */
   const qr = await open(`${LOGIN}?handoff=demo-handoff-01&conversation=nova-khoa`);
@@ -182,7 +333,9 @@ try {
   console.log("ok  1440/1280/390/360: không tràn ngang, QR ≥ 220px; desktop đổi tab không đổi kích thước khung");
 
   assert.deepEqual(errors, [], "Browser console errors");
-  console.log("PASS: đăng nhập Replyn bằng Nova (mock)");
+  console.log("PASS: đăng nhập Replyn bằng Nova (Nova ID qua server, QR thử nghiệm)");
 } finally {
   await browser.close();
+  fakeNova.close();
+  server?.kill();
 }

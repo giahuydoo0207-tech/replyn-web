@@ -4,7 +4,8 @@ import { ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { resolveHandoff, safeReturnTo, type NovaDemoAccount } from "@/lib/auth/mockNova";
-import { startTabFromNovaLogin } from "@/lib/auth/demoSession";
+import { queuePendingLogin, startTabFromNovaLogin } from "@/lib/auth/demoSession";
+import type { BusinessIdentity } from "@/lib/auth/novaBusinessClient";
 import { initialState } from "@/lib/seed";
 import { ReplynMark } from "../ui";
 import { AuthMethodTabs, panelId, tabId, type AuthMethod } from "./AuthMethodTabs";
@@ -12,6 +13,12 @@ import { HandoffSummary } from "./HandoffSummary";
 import { NovaMark, SuccessCheck } from "./marks";
 import { NovaIdForm } from "./NovaIdForm";
 import { NovaQrLogin } from "./NovaQrLogin";
+
+/**
+ * Chat vẫn chạy trên dữ liệu mẫu: doanh nghiệp đăng nhập bằng Nova ID ngồi vào ghế Business của dữ liệu mẫu.
+ * Danh tính thật (tên, Nova ID) nằm trong cookie phiên do server ký.
+ */
+const BUSINESS_SEAT = "u-ha";
 
 /* Phương thức gần nhất (không chứa dữ liệu nhạy cảm). Chưa chọn: desktop → QR, mobile → Nova ID. */
 const METHOD_KEY = "replyn.auth.method";
@@ -58,16 +65,30 @@ export function NovaAuthPage() {
     }
   };
 
-  const onSuccess = useCallback(
-    (account: NovaDemoAccount) => {
+  const finish = useCallback(
+    (userId: string, name: string, applyLogin: (conversation: string | null) => void) => {
       // chỉ mở cuộc trò chuyện nếu tài khoản vừa xác minh là thành viên của nó
-      const conversation = handoff && handoff.members.some((m) => m.id === account.userId) ? handoff.conversationId : null;
-      const name = initialState().users[account.userId]?.name ?? account.novaId;
+      const conversation = handoff && handoff.members.some((m) => m.id === userId) ? handoff.conversationId : null;
       setSignedIn({ name, toConversation: !!conversation });
-      startTabFromNovaLogin(account.role, conversation);
+      applyLogin(conversation);
       window.setTimeout(() => router.replace(conversation ? "/" : (returnTo ?? "/")), 900);
     },
     [handoff, returnTo, router],
+  );
+
+  /** Nova ID: server đã xác minh và đặt cookie phiên; vai Business được đọc lại từ cookie, không ghi vào sessionStorage. */
+  const onBusinessSuccess = useCallback(
+    (identity: BusinessIdentity) => finish(BUSINESS_SEAT, identity.displayName, queuePendingLogin),
+    [finish],
+  );
+
+  /** Mã QR: vẫn là bản thử nghiệm phía trình duyệt (chưa có QR pairing backend). */
+  const onQrSuccess = useCallback(
+    (account: NovaDemoAccount) =>
+      finish(account.userId, initialState().users[account.userId]?.name ?? account.novaId, (conversation) =>
+        startTabFromNovaLogin(account.role, conversation),
+      ),
+    [finish],
   );
 
   const panels: { m: AuthMethod; side: "left" | "right" }[] = [
@@ -117,9 +138,9 @@ export function NovaAuthPage() {
                 className="na-panel"
               >
                 {m === "id" ? (
-                  <NovaIdForm onSuccess={onSuccess} />
+                  <NovaIdForm onSuccess={onBusinessSuccess} />
                 ) : (
-                  <NovaQrLogin active={active} onSuccess={onSuccess} onUseNovaId={() => choose("id")} />
+                  <NovaQrLogin active={active} onSuccess={onQrSuccess} onUseNovaId={() => choose("id")} />
                 )}
               </div>
             );
@@ -141,7 +162,9 @@ export function NovaAuthPage() {
           Replyn chỉ liên kết danh tính và cuộc trò chuyện bạn đã cho phép.
         </footer>
       </section>
-      <p className="mt-4 text-center text-[12px] text-(--na-muted)">Bản demo: đăng nhập được mô phỏng trên trình duyệt, chưa kết nối Nova.</p>
+      <p className="mt-4 text-center text-[12px] text-(--na-muted)">
+        Nova ID được xác minh với Nova Business. Mã QR đang ở chế độ thử nghiệm.
+      </p>
     </div>
   );
 }

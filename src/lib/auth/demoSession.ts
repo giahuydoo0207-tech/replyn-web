@@ -8,8 +8,6 @@ import type { Role } from "../types";
 const ROLE_KEY = "replyn.auth.role";
 const PENDING_KEY = "replyn.auth.pending";
 
-const ROLES: Role[] = ["business", "freelancer"];
-
 export interface PendingLogin {
   /** null: mở danh sách chat */
   conversationId: string | null;
@@ -36,6 +34,25 @@ function set(key: string, value: string | null) {
 /** Gọi khi đăng nhập Nova (mock) thành công, ngay trước khi chuyển sang màn chat. */
 export function startTabFromNovaLogin(role: Role, conversationId: string | null) {
   set(ROLE_KEY, role);
+  queuePending(conversationId);
+}
+
+/**
+ * Đăng nhập Nova ID (thật): vai Business đến từ cookie phiên do server ký, nên tab chỉ giữ cuộc trò chuyện
+ * cần mở và bỏ vai trò mock cũ (nếu có).
+ */
+export function queuePendingLogin(conversationId: string | null) {
+  set(ROLE_KEY, null);
+  queuePending(conversationId);
+}
+
+/** Sau khi đăng xuất: bỏ vai trò và cuộc trò chuyện đang chờ của tab. */
+export function clearTabLogin() {
+  set(ROLE_KEY, null);
+  set(PENDING_KEY, null);
+}
+
+function queuePending(conversationId: string | null) {
   const pending: PendingLogin = {
     conversationId,
     notice: conversationId ? "Đã liên kết cuộc trò chuyện từ Nova." : null,
@@ -43,10 +60,13 @@ export function startTabFromNovaLogin(role: Role, conversationId: string | null)
   set(PENDING_KEY, JSON.stringify(pending));
 }
 
-/** Vai trò của tab sau khi đăng nhập (giữ qua refresh trong cùng tab). */
+/**
+ * Vai trò mock của tab (giữ qua refresh trong cùng tab). Chỉ dùng cho luồng QR thử nghiệm; vai Business
+ * không bao giờ được cấp từ sessionStorage.
+ */
 export function readTabRole(): Role | null {
   const r = get(ROLE_KEY);
-  return ROLES.includes(r as Role) ? (r as Role) : null;
+  return r === "freelancer" ? r : null;
 }
 
 /** Đọc và xóa kết quả đăng nhập đang chờ áp dụng (chỉ một lần). */

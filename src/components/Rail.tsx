@@ -13,9 +13,10 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { initials, visibleTo } from "@/lib/reducer";
 import { buildScene, initialState, SCENES } from "@/lib/seed";
-import { useMe, useStore } from "@/lib/store";
+import { useBusinessSession, useMe, useStore } from "@/lib/store";
 import type { Role } from "@/lib/types";
 import { Avatar, cx, ReplynMark } from "./ui";
+import { BusinessAccount } from "./BusinessAccount";
 import { NavigationMenu } from "./NavigationMenu";
 
 const COLLAPSED = 64;
@@ -30,6 +31,12 @@ export function Rail() {
   const { state, dispatch } = useStore();
   const meId = useMe();
   const user = state.users[meId];
+  const { identity } = useBusinessSession();
+  // vai Business của phiên thật hiển thị danh tính đã xác minh thay cho tài khoản mẫu
+  const account =
+    identity && state.role === "business"
+      ? { name: identity.displayName, detail: identity.publicNovaId, color: "#FFB65C" }
+      : { name: user.name, detail: state.role === "business" ? "Business" : "Freelancer", color: user.color };
   const [hovered, setHovered] = useState(false);
   const [suppressHover, setSuppressHover] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -156,14 +163,14 @@ export function Rail() {
             type="button"
             onClick={() => setMenu((v) => !v)}
             className="mx-2 flex h-12 items-center rounded-xl hover:bg-white/6 focus-visible:outline-2 focus-visible:outline-white/40"
-            aria-label={`Hồ sơ: ${user.name}`}
+            aria-label={`Hồ sơ: ${account.name}`}
           >
             <span className="grid w-12 shrink-0 place-items-center">
-              <Avatar initials={initials(user.name)} bg="#233138" fg={user.color} size={34} ring />
+              <Avatar initials={initials(account.name)} bg="#233138" fg={account.color} size={34} ring />
             </span>
             <Label pinned={expanded} className="min-w-0 text-left">
-              <span className="block truncate text-sm font-medium">{user.name}</span>
-              <span className="block text-xs text-muted">{state.role === "business" ? "Business" : "Freelancer"}</span>
+              <span className="block max-w-[150px] truncate text-sm font-medium">{account.name}</span>
+              <span className={cx("block text-xs text-muted", identity && state.role === "business" && "font-mono")}>{account.detail}</span>
             </Label>
           </button>
 
@@ -256,11 +263,13 @@ function DemoMenu({
   setRole: (r: Role) => void;
 }) {
   const { state, dispatch } = useStore();
+  const { identity } = useBusinessSession();
   return (
     <div
-      className="msg-in fixed bottom-3 z-50 w-80 rounded-2xl bg-panel p-3 shadow-2xl ring-1 ring-line"
+      className="msg-in fixed bottom-3 z-50 max-h-[calc(100dvh-24px)] w-80 overflow-y-auto rounded-2xl bg-panel p-3 shadow-2xl ring-1 ring-line"
       style={{ left }}
     >
+      <BusinessAccount className="mb-4" />
       <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">Xem với vai trò</p>
       <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl bg-rail p-1">
         {(["business", "freelancer"] as Role[]).map((r) => {
@@ -276,7 +285,7 @@ function DemoMenu({
               )}
             >
               <span className="block text-sm font-semibold">{r === "business" ? "Business" : "Freelancer"}</span>
-              <span className="block truncate text-xs opacity-80">{u.name}</span>
+              <span className="block truncate text-xs opacity-80">{r === "business" && identity ? identity.displayName : u.name}</span>
             </button>
           );
         })}

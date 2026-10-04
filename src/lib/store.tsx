@@ -1,26 +1,49 @@
 "use client";
 
-import { createContext, useContext, useEffect, useReducer, useState, type Dispatch, type ReactNode } from "react";
-import { consumePendingLogin, readTabRole } from "./auth/demoSession";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState, type Dispatch, type ReactNode } from "react";
+import { clearTabLogin, consumePendingLogin, readTabRole } from "./auth/demoSession";
+import { fetchBusinessSession, logoutBusiness, type BusinessIdentity } from "./auth/novaBusinessClient";
 import { me, reducer, type Action, type AppState } from "./reducer";
 import { initialState } from "./seed";
 
 const StoreCtx = createContext<{ state: AppState; dispatch: Dispatch<Action> } | null>(null);
 
+interface BusinessSession {
+  /** Danh tính Business đã được server xác minh (từ cookie phiên); không có subjectId hay Nova Key. */
+  identity: BusinessIdentity | null;
+  /** Đăng xuất Nova. False nếu server chưa xóa được phiên; khi đó vẫn giữ trạng thái đăng nhập. */
+  signOut: () => Promise<boolean>;
+}
+
+const BusinessCtx = createContext<BusinessSession | null>(null);
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [notice, setNotice] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<BusinessIdentity | null>(null);
 
-  // Đăng nhập Nova (mock): áp vai trò của tab và mở đúng cuộc trò chuyện một lần sau khi mount
+  // Đăng nhập Nova: áp vai trò của tab và mở đúng cuộc trò chuyện một lần sau khi mount.
+  // Vai Business chỉ đến từ cookie phiên do server xác minh; tab đã đăng nhập QR (thử nghiệm) giữ vai của nó.
   useEffect(() => {
+    let alive = true;
     const role = readTabRole();
     if (role) dispatch({ type: "SET_ROLE", role });
+    else
+      fetchBusinessSession().then((verified) => {
+        if (!alive || !verified) return;
+        setIdentity(verified);
+        dispatch({ type: "SET_ROLE", role: "business" });
+      });
     const pending = consumePendingLogin();
-    if (!pending) return;
-    dispatch({ type: "SELECT_CHAT", chatId: pending.conversationId });
-    const message = pending.notice;
-    // hiện sau lần render đầu; không hủy trong cleanup vì StrictMode chạy effect hai lần mà pending chỉ đọc được một lần
-    if (message) window.setTimeout(() => setNotice(message), 0);
+    if (pending) {
+      dispatch({ type: "SELECT_CHAT", chatId: pending.conversationId });
+      const message = pending.notice;
+      // hiện sau lần render đầu; không hủy trong cleanup vì StrictMode chạy effect hai lần mà pending chỉ đọc được một lần
+      if (message) window.setTimeout(() => setNotice(message), 0);
+    }
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -29,14 +52,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(t);
   }, [notice]);
 
+  const signOut = useCallback(async () => {
+    if (!(await logoutBusiness())) return false;
+    clearTabLogin();
+    setIdentity(null);
+    window.location.replace("/auth/nova");
+    return true;
+  }, []);
+  const business = useMemo(() => ({ identity, signOut }), [identity, signOut]);
+
   return (
     <StoreCtx.Provider value={{ state, dispatch }}>
-      {children}
-      {notice && (
-        <div role="status" className="pointer-events-none fixed bottom-4 left-1/2 z-[60] -translate-x-1/2">
-          <span className="rounded-full bg-panel px-4 py-2 text-sm font-medium text-ink shadow-2xl ring-1 ring-line">{notice}</span>
-        </div>
-      )}
+      <BusinessCtx.Provider value={business}>
+        {children}
+        {notice && (
+          <div role="status" className="pointer-events-none fixed bottom-4 left-1/2 z-[60] -translate-x-1/2">
+            <span className="rounded-full bg-panel px-4 py-2 text-sm font-medium text-ink shadow-2xl ring-1 ring-line">{notice}</span>
+          </div>
+        )}
+      </BusinessCtx.Provider>
     </StoreCtx.Provider>
   );
 }
@@ -44,6 +78,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 export function useStore() {
   const ctx = useContext(StoreCtx);
   if (!ctx) throw new Error("useStore must be used inside <StoreProvider>");
+  return ctx;
+}
+
+/** Phiên Nova Business thật của trình duyệt (null khi chưa đăng nhập bằng Nova ID). */
+export function useBusinessSession() {
+  const ctx = useContext(BusinessCtx);
+  if (!ctx) throw new Error("useBusinessSession must be used inside <StoreProvider>");
   return ctx;
 }
 
