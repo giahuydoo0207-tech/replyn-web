@@ -9,7 +9,7 @@ import { focusRing, GuideSteps, linkClass, NovaMark, Spinner, SuccessCheck } fro
 import { QrStatus, type QrPhase } from "./QrStatus";
 import { RememberDevice } from "./RememberDevice";
 
-const STEPS = ["Mở Nova trên điện thoại.", "Vào Tài khoản → Thiết bị liên kết.", "Quét mã và xác nhận đăng nhập Replyn."];
+const STEPS = ["Mở Nova trên điện thoại.", "Ở Trang chủ, nhấn biểu tượng quét QR cạnh chuông.", "Quét mã và xác nhận đăng nhập Replyn."];
 
 interface QrSession {
   id: string;

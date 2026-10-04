@@ -40,7 +40,7 @@ export function GuideSteps({ title, steps }: { title: string; steps: string[] })
             <span className="grid size-6 shrink-0 place-items-center rounded-full bg-(--na-raised) text-[12px] font-semibold text-(--na-ink)">
               {i + 1}
             </span>
-            <span className="pt-0.5">{s}</span>
+            <span className="min-w-0 pt-0.5 text-pretty">{s}</span>
           </li>
         ))}
       </ol>
