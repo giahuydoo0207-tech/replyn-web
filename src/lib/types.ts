@@ -190,8 +190,8 @@ export interface Conversation {
   pinned?: boolean;
   muted?: boolean;
   workspaceId?: string;
-  /** Lịch sử Nova Chat (chỉ xem) đã dẫn tới workspace này. */
+  /** Hội thoại Nova (chỉ xem) đã dẫn tới workspace này. */
   linkedWorkspaceChatId?: string;
-  /** Nova Chat đã tạo ra workspace này, dùng để quay lại đúng cuộc phỏng vấn ban đầu. */
+  /** Hội thoại Nova đã tạo ra workspace này, dùng để quay lại từ workspace. */
   sourceNovaChatId?: string;
 }

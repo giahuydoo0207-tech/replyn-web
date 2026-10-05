@@ -69,7 +69,7 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
     ? state.conversations[conv.linkedWorkspaceChatId]
     : undefined;
   const pairedChat = sourceChat ?? workspaceChat;
-  // Workspace có lịch sử Nova: chuyển qua lại; workspace mở từ Nova thật thì không có lịch sử chat để quay về.
+  // Workspace Nova luôn có một hội thoại nguồn chỉ-đọc để cả hai vai trò chuyển qua lại.
   const folderAction = pairedChat ? (ws ? "chat" : "workspace") : null;
 
   const openProjectFolder = () => {
