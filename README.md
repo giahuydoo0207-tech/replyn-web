@@ -11,10 +11,10 @@ Cấp vốn, giải ngân và phí vận hành đều là mô phỏng. Replyn kh
 - Nova Business và Nova Mobile dùng chung một backend Spring Boot/PostgreSQL.
 - Nova Mobile có đăng nhập thật (email/OTP, token lưu an toàn trên thiết bị).
 - Nova Business hiện là demo dưới một organization mẫu, **chưa có phiên đăng nhập người dùng doanh nghiệp**.
-- Màn “Tiếp tục với Nova” của Replyn (`/auth/nova`, Nova ID / Mã QR) là **prototype frontend**: xác thực được mô phỏng
-  trên trình duyệt, chưa gọi Nova hay Supabase.
-- Tin nhắn Nova CHAT trong bản nộp là **dữ liệu seed**.
-- Tích hợp Supabase, signed handoff và QR pairing là **kiến trúc tiếp theo**, chưa triển khai.
+- Màn “Tiếp tục với Nova” của Replyn (`/auth/nova`) xác thực thật qua server Replyn: **Nova ID + Nova Key** (Business)
+  và **mã QR xác nhận bằng Nova Mobile** (Talent), cấp phiên Replyn trong cookie HttpOnly.
+- Tin nhắn Nova CHAT trong bản nộp là **dữ liệu seed**; đăng nhập thật chưa đồng bộ tin nhắn thật.
+- Tích hợp Supabase và signed handoff là **kiến trúc tiếp theo**, chưa triển khai.
 - Ký quỹ, phí và giải ngân đều là **mô phỏng**; Replyn không giữ tiền thật.
 
 Kiến trúc, ERD và integration contract dự kiến: [docs/architecture/nova-supabase-integration.md](docs/architecture/nova-supabase-integration.md).
@@ -34,20 +34,25 @@ Chụp màn hình các cảnh demo và chạy thử luồng chính (cần `npm r
 $env:BASE_URL="http://localhost:3000"; npm run screens   # ảnh lưu ở ./screenshots
 ```
 
-## Đăng nhập Replyn bằng Nova (prototype frontend)
+## Đăng nhập Replyn bằng Nova
 
-Route `/auth/nova`, ví dụ `/auth/nova?handoff=demo-handoff-01&conversation=nova-khoa`. Đây là **prototype frontend**:
-toàn bộ là mô phỏng phía trình duyệt, chưa gọi Nova API, Supabase Auth hay OAuth. Thiết kế thật (signed handoff,
-QR pairing, Supabase) nằm trong [tài liệu kiến trúc](docs/architecture/nova-supabase-integration.md).
+Route `/auth/nova`, ví dụ `/auth/nova?handoff=demo-handoff-01&conversation=nova-khoa`. Server Replyn
+(`src/lib/auth/server/novaBusinessAuth.ts`) gọi Nova backend; trình duyệt chỉ gọi route same-origin của Replyn.
+Biến môi trường (chỉ server, không bao giờ `NEXT_PUBLIC_`): `NOVA_API_URL`, `REPLYN_SESSION_SECRET`,
+`REPLYN_QR_CLIENT_SECRET` (xem `.env.example`).
 
-- **Nova ID** (Business): Nova ID là định danh công khai nên luôn đi kèm **Nova Key**. Cặp demo nằm trong
-  `src/lib/auth/mockNova.ts` (`NVB-7K29Q` / `DEMO-2026`), không phải secret production. Nova Key không được lưu.
-- **Mã QR** (Nova Mobile, demo đăng nhập là Freelancer): QR chứa URL demo, không chứa token. Mục *Điều khiển demo*
-  dưới mã thay cho điện thoại thật: `ready → scanned → approved`, làm mã hết hạn, lỗi tạo mã.
-- Đăng nhập xong, `src/lib/auth/demoSession.ts` ghi vào sessionStorage của tab: vai trò, cuộc trò chuyện cần mở
-  và một thông báo một lần. Màn chat đọc kết quả này một lần rồi chạy như cũ (reducer mock trong bộ nhớ):
-  có `handoff` + `conversation` thì mở thẳng cuộc trò chuyện (nếu tài khoản là thành viên) và hiện
-  "Đã liên kết cuộc trò chuyện từ Nova."; không có thì mở danh sách chat. `returnTo` chỉ nhận đường dẫn nội bộ.
+- **Nova ID** (Business): Nova ID là định danh công khai nên luôn đi kèm **Nova Key**; `POST /api/auth/nova/business`
+  xác minh cặp này với Nova. Nova Key không được lưu.
+- **Mã QR** (Talent, Nova Mobile): `POST /api/auth/nova/qr` nhờ Nova backend tạo challenge 60 giây, đặt cookie
+  `replyn_qr_pairing` (HttpOnly, ký HMAC, giữ pairingId + browserSecret) và chỉ trả `qrUrl`
+  (`/auth/nova?pairing=…&secret=…&exp=…&action=login`). Trang hỏi `GET /api/auth/nova/qr` mỗi 2 giây; khi Nova Mobile
+  đã xác nhận, server tiêu thụ challenge đúng một lần, đặt phiên Talent và xóa cookie challenge. Talent không có
+  Nova ID: giao diện hiện tên và “Nova Mobile đã xác minh”, không bao giờ hiện mã hồ sơ nội bộ.
+- Đăng nhập xong, `src/lib/auth/demoSession.ts` ghi vào sessionStorage của tab cuộc trò chuyện cần mở và một thông báo
+  một lần; vai trò luôn đọc lại từ cookie phiên nên refresh vẫn giữ. Có `handoff` + `conversation` thì mở thẳng cuộc
+  trò chuyện (nếu tài khoản là thành viên); Talent không có handoff thì mở kênh `channel-nova`; `returnTo` chỉ nhận
+  đường dẫn nội bộ.
+- Chưa có giới hạn tần suất phân tán cho các route đăng nhập; đó là hạ tầng tiếp theo (không dùng bộ đếm trong bộ nhớ).
 - Màn chat chính chưa bắt buộc đăng nhập, để giữ nguyên luồng demo hiện tại.
 - **Backend thật phải xác minh signed handoff** (chữ ký, hạn dùng, người nhận) ở server, không tin query trên URL.
 
@@ -55,7 +60,8 @@ QR pairing, Supabase) nằm trong [tài liệu kiến trúc](docs/architecture/n
 $env:BASE_URL="http://localhost:3000"; npm run test:login   # ảnh login-*.png lưu ở ./screenshots
 ```
 
-Test giải mã lại ảnh chụp QR bằng `jsqr` (devDependency) để chắc mã vẫn quét được khi có logo ở giữa.
+`npm run test:login` dùng máy chủ Nova giả trên máy (tự duyệt challenge thay cho Nova Mobile) và giải mã lại ảnh chụp
+QR bằng `jsqr` (devDependency) để chắc mã vẫn quét được khi có logo ở giữa. `npm run test:auth` kiểm thử server.
 
 ## IA: tách lớp Chat và lớp Protection
 

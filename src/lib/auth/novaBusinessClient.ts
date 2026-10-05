@@ -1,7 +1,7 @@
 import type { AuthResponseBody, PublicIdentity } from "./server/novaBusinessAuth";
 
 /**
- * Phía trình duyệt của đăng nhập Nova Business. Chỉ gọi route của chính Replyn; server mới là nơi gọi Nova
+ * Phía trình duyệt của đăng nhập Nova. Chỉ gọi route của chính Replyn; server mới là nơi gọi Nova
  * và quyết định đã xác thực hay chưa. Không lưu Nova Key ở đâu cả.
  */
 
@@ -9,7 +9,10 @@ import type { AuthResponseBody, PublicIdentity } from "./server/novaBusinessAuth
 export const NOVA_BUSINESS_ID_PATTERN = /^NVB-[2-9A-HJKMNP-Z]{8}$/;
 export const NOVA_KEY_PATTERN = /^nvk_[A-Za-z0-9_-]{43}$/;
 
-export type BusinessIdentity = PublicIdentity;
+/** Danh tính Nova của phiên Replyn: Business (Nova ID) hoặc Talent (đã xác minh bằng Nova Mobile). */
+export type NovaIdentity = PublicIdentity;
+export type BusinessIdentity = Extract<PublicIdentity, { role: "business" }>;
+export type TalentIdentity = Extract<PublicIdentity, { role: "freelancer" }>;
 
 export type BusinessLoginResult =
   | { ok: true; identity: BusinessIdentity }
@@ -21,7 +24,7 @@ export function normalizeBusinessNovaId(raw: string): string {
   return /^NVB[2-9A-HJKMNP-Z]{8}$/.test(compact) ? `${compact.slice(0, 3)}-${compact.slice(3)}` : compact;
 }
 
-async function readBody(response: Response): Promise<AuthResponseBody | null> {
+export async function readAuthBody(response: Response): Promise<AuthResponseBody | null> {
   try {
     return (await response.json()) as AuthResponseBody;
   } catch {
@@ -42,19 +45,21 @@ export async function loginWithNovaBusiness(novaId: string, novaKey: string, rem
   } catch {
     return { ok: false, reason: "unavailable" };
   }
-  const body = await readBody(response);
-  if (response.ok && body && "authenticated" in body && body.authenticated) return { ok: true, identity: body.identity };
+  const body = await readAuthBody(response);
+  if (response.ok && body && "authenticated" in body && body.authenticated && body.identity.role === "business") {
+    return { ok: true, identity: body.identity };
+  }
   if (response.status === 401) return { ok: false, reason: "invalid_credentials" };
   if (response.status === 400) return { ok: false, reason: "invalid_input" };
   if (body && "error" in body && body.error === "not_configured") return { ok: false, reason: "not_configured" };
   return { ok: false, reason: "unavailable" };
 }
 
-/** Danh tính Business từ cookie phiên (đọc qua server), null nếu chưa đăng nhập hoặc không kiểm tra được. */
-export async function fetchBusinessSession(): Promise<BusinessIdentity | null> {
+/** Danh tính Nova từ cookie phiên (đọc qua server), null nếu chưa đăng nhập hoặc không kiểm tra được. */
+export async function fetchNovaSession(): Promise<NovaIdentity | null> {
   try {
     const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
-    const body = await readBody(response);
+    const body = await readAuthBody(response);
     return response.ok && body && "authenticated" in body && body.authenticated ? body.identity : null;
   } catch {
     return null;

@@ -1,10 +1,11 @@
 // Kiểm thử màn đăng nhập Replyn bằng Nova + chụp ảnh desktop/mobile cả hai tab.
-// Nova ID đi qua server Replyn thật (route + cookie phiên); Nova Business được thay bằng máy chủ giả trên máy.
+// Nova ID và mã QR đi qua server Replyn thật (route + cookie); Nova backend được thay bằng máy chủ giả trên máy,
+// và bước "Nova Mobile xác nhận" được mô phỏng bằng cách duyệt challenge trực tiếp trên máy chủ giả đó.
 // Chạy sau `npm run build`: npm run test:login  (script tự chạy `next start` với biến môi trường kiểm thử)
 // Hoặc trỏ tới server đang chạy với NOVA_API_URL=http://127.0.0.1:3299: $env:BASE_URL="http://localhost:3000"; npm run test:login
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { createServer } from "node:http";
 import { chromium } from "playwright-core";
@@ -19,16 +20,55 @@ const NOVA_KEY = `nvk_${randomBytes(32).toString("base64url")}`;
 const WRONG_KEY = `nvk_${randomBytes(32).toString("base64url")}`;
 const DOWN_ID = "NVB-FAKE5ERR"; // Nova trả 500 cho ID này
 const novaCalls = [];
+/* Challenge QR giả: Nova thật lưu trong PostgreSQL, ở đây giữ trong bộ nhớ của máy chủ kiểm thử. */
+const QR_CLIENT_SECRET = randomBytes(32).toString("base64url");
+const TALENT = { subjectId: "contractor-test-minh-anh", displayName: "Minh Anh" };
+const pairings = new Map();
+const qrStats = { created: 0, consumeCalls: 0, failNextCreate: false };
+/** Nova Mobile xác nhận: chỉ thành công khi đúng qrSecret của challenge đang chờ. */
+function approve(pairingId, qrSecret) {
+  const p = pairings.get(pairingId);
+  assert.ok(p && p.qrSecret === qrSecret && p.status === "PENDING", "Nova Mobile xác nhận đúng challenge đang chờ");
+  p.status = "APPROVED";
+}
 const fakeNova = createServer((req, res) => {
   let raw = "";
   req.on("data", (c) => (raw += c));
   req.on("end", () => {
     const body = JSON.parse(raw || "{}");
-    novaCalls.push(body.novaId);
     const reply = (status, payload) => {
       res.writeHead(status, { "Content-Type": "application/json" });
       res.end(JSON.stringify(payload));
     };
+    if (req.url.startsWith("/api/v1/integrations/replyn/pairings")) {
+      if (req.headers["x-replyn-client-secret"] !== QR_CLIENT_SECRET) return reply(401, { status: "UNAUTHORIZED" });
+      if (req.url === "/api/v1/integrations/replyn/pairings") {
+        if (qrStats.failNextCreate) {
+          qrStats.failNextCreate = false;
+          return reply(500, {});
+        }
+        qrStats.created++;
+        const p = {
+          pairingId: randomUUID(),
+          qrSecret: randomBytes(32).toString("base64url"),
+          browserSecret: randomBytes(32).toString("base64url"),
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          status: "PENDING",
+        };
+        pairings.set(p.pairingId, p);
+        return reply(201, { pairingId: p.pairingId, qrSecret: p.qrSecret, browserSecret: p.browserSecret, expiresAt: p.expiresAt, action: "login" });
+      }
+      const id = req.url.match(/^\/api\/v1\/integrations\/replyn\/pairings\/([0-9a-f-]{36})\/consume$/)?.[1];
+      const p = id && pairings.get(id);
+      qrStats.consumeCalls++;
+      if (!p || p.browserSecret !== body.browserSecret) return reply(404, { status: "NOT_FOUND" });
+      if (p.status === "CONSUMED") return reply(409, { status: "ALREADY_USED" });
+      if (p.status === "EXPIRED") return reply(410, { status: "EXPIRED" });
+      if (p.status === "PENDING") return reply(202, { status: "PENDING" });
+      p.status = "CONSUMED";
+      return reply(200, { status: "CONSUMED", identity: { provider: "NOVA", subjectType: "TALENT", role: "freelancer", ...TALENT }, approvedAt: new Date().toISOString() });
+    }
+    novaCalls.push(body.novaId);
     if (req.url !== "/api/v1/nova-credentials/verify") return reply(404, {});
     if (body.novaId === DOWN_ID) return reply(500, { error: "internal" });
     if (body.novaId !== NOVA_ID || body.novaKey !== NOVA_KEY) return reply(401, { message: "Nova ID or Nova Key is invalid." });
@@ -57,6 +97,7 @@ if (!process.env.BASE_URL) {
       ...process.env,
       NOVA_API_URL: `http://127.0.0.1:${NOVA_PORT}`,
       REPLYN_SESSION_SECRET: randomBytes(48).toString("base64url"),
+      REPLYN_QR_CLIENT_SECRET: QR_CLIENT_SECRET,
     },
     stdio: "ignore",
   });
@@ -74,8 +115,9 @@ if (!process.env.BASE_URL) {
 mkdirSync("screenshots", { recursive: true });
 const browser = await chromium.launch({ channel: "chrome" });
 const errors = [];
-// 401/503 (Nova) và 500 (đăng xuất lỗi giả lập) là phản hồi mong đợi; trình duyệt vẫn ghi chúng ra console
-const expectedHttpError = /Failed to load resource: the server responded with a status of (401|500|503)/;
+// 401/503 (Nova), 409/410 (mã QR đã dùng/hết hạn) và 500 (đăng xuất lỗi giả lập) là phản hồi mong đợi;
+// trình duyệt vẫn ghi chúng ra console
+const expectedHttpError = /Failed to load resource: the server responded with a status of (401|409|410|500|503)/;
 
 async function open(url, viewport = { width: 1440, height: 900 }) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
@@ -123,21 +165,45 @@ async function heightAfter(page, tabName) {
   return (await card(page).boundingBox()).height;
 }
 
-async function demoStep(page, label) {
-  const details = page.locator("details", { hasText: "Điều khiển demo" });
-  if (!(await details.evaluate((d) => d.open))) await details.locator("summary").click();
-  await page.getByRole("button", { name: label }).click();
+const QR_URL = new RegExp(
+  `^${BASE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/auth/nova\\?pairing=([0-9a-f-]{36})&secret=([A-Za-z0-9_-]{43})&exp=(\\d{10})&action=login$`,
+);
+
+/** Đọc mã QR đang hiển thị như Nova Mobile: đúng định dạng và khớp challenge Nova vừa tạo. */
+async function scanQr(page) {
+  await visible(qrImage(page), 8000);
+  const decoded = await decodeQr(page);
+  const m = decoded?.match(QR_URL);
+  assert.ok(m, `QR quét được và đúng định dạng (đọc được: ${decoded})`);
+  const [, pairingId, qrSecret, exp] = m;
+  assert.ok(pairings.has(pairingId), "pairingId là challenge Nova vừa tạo");
+  assert.ok(Math.abs(Number(exp) * 1000 - Date.parse(pairings.get(pairingId).expiresAt)) < 1000, "exp khớp hạn 60 giây của Nova");
+  return { pairingId, qrSecret };
+}
+
+/** Không có điều khiển mô phỏng nào trong giao diện thật. */
+async function noDemoControls(page) {
+  assert.equal(await page.getByText("Điều khiển demo").count(), 0, "Không còn điều khiển demo");
+  assert.equal(await page.getByText(/Mô phỏng:/).count(), 0, "Không còn nút mô phỏng");
+  assert.equal(await page.getByText(/thử nghiệm/).count(), 0, "Không còn chữ thử nghiệm ở màn đăng nhập");
 }
 
 try {
   /* 1. Chuyển Nova ID ↔ QR, mặc định QR trên desktop, nhớ lựa chọn */
   const page = await open(LOGIN);
   await selected(page, "Mã QR"); // desktop mặc định chọn Mã QR
-  await visible(qrImage(page));
-  const decoded = await decodeQr(page);
-  assert.ok(decoded?.startsWith(`${BASE}/auth/nova?demo-qr=`), `QR quét được và chỉ chứa URL demo (đọc được: ${decoded})`);
+  const first = await scanQr(page);
+  assert.ok(!(await page.content()).includes(pairings.get(first.pairingId).browserSecret), "browserSecret không nằm trong trang");
+  const pairingCookie = (await page.context().cookies(`${BASE}/api/auth/nova/qr`)).find((c) => c.name === "replyn_qr_pairing");
+  assert.ok(pairingCookie, "Có cookie challenge");
+  assert.equal(pairingCookie.httpOnly, true, "Cookie challenge là HttpOnly");
+  assert.equal(pairingCookie.sameSite, "Lax");
+  assert.equal(pairingCookie.path, "/api/auth/nova/qr");
+  assert.ok(pairingCookie.expires > 0 && pairingCookie.expires - Date.now() / 1000 <= 61, "Cookie challenge sống 60 giây");
+  assert.equal(await page.evaluate(() => document.cookie.includes("replyn_qr_pairing")), false, "JS không đọc được cookie challenge");
+  await noDemoControls(page);
   await shot(page, "login-qr-1440");
-  console.log("ok  QR giải mã được từ ảnh chụp (có logo giữa), nội dung là URL demo");
+  console.log("ok  QR thật: giải mã được (có logo giữa), đúng định dạng pairing/secret/exp/action, cookie challenge HttpOnly 60 giây");
   await tab(page, "Mã QR").focus();
   await page.keyboard.press("ArrowLeft");
   await selected(page, "Nova ID"); // phím mũi tên chuyển tab
@@ -277,40 +343,92 @@ try {
   assert.equal(await page.getByText("Nova Business đã xác minh").count(), 0);
   console.log("ok  Nova ID thật → cookie HttpOnly, chống gửi lặp, refresh giữ danh tính, menu tài khoản, đăng xuất lỗi/thành công");
 
-  /* 5. QR hết hạn → làm mới; scanned → approved; có handoff → mở đúng conversation */
+  /* 5. QR thật có handoff: Nova Mobile xác nhận → phiên Talent, mở đúng conversation, refresh, đăng xuất */
   const qr = await open(`${LOGIN}?handoff=demo-handoff-01&conversation=nova-khoa`);
   const summary = qr.getByRole("region", { name: "Cuộc trò chuyện được chuyển từ Nova" });
   await visible(summary.getByText("Landing page Mộc Coffee"));
   assert.equal(await summary.getByText(/Chị trao đổi|portfolio/).count(), 0, "Không lộ nội dung tin nhắn");
-  await visible(qrImage(qr));
-  await demoStep(qr, "Làm mã hết hạn");
-  await visible(qr.getByText("Mã đã hết hạn", { exact: true }));
-  await shot(qr, "login-qr-expired-1440");
-  await qr.getByRole("button", { name: "Tạo mã mới" }).click();
-  await visible(qrImage(qr));
-  await demoStep(qr, "Mô phỏng: điện thoại quét mã");
-  await visible(qr.getByText("Đang chờ xác nhận trên điện thoại"));
-  assert.equal(await qr.locator(".na-scan-line").count(), 0, "Dừng scan line khi đã quét");
-  await demoStep(qr, "Mô phỏng: xác nhận trên điện thoại");
-  await visible(qr.getByText("Đã xác nhận", { exact: true }));
+  const scanned = await scanQr(qr);
+  // vài lượt hỏi khi chưa xác nhận: vẫn chờ, không đăng nhập
+  const pollsBefore = qrStats.consumeCalls;
+  await qr.waitForTimeout(4500);
+  assert.ok(qrStats.consumeCalls - pollsBefore >= 1 && qrStats.consumeCalls - pollsBefore <= 3, "Hỏi lại khoảng mỗi 2 giây");
+  assert.equal(qr.url(), `${LOGIN}?handoff=demo-handoff-01&conversation=nova-khoa`);
+  approve(scanned.pairingId, scanned.qrSecret);
+  await visible(qr.getByText("Đã xác nhận", { exact: true }), 8000);
   await qr.waitForURL(`${BASE}/`, { timeout: 8000 });
   await visible(qr.getByRole("region", { name: "Trò chuyện: Lê Minh Khoa" }));
   await visible(qr.getByText("Đã liên kết cuộc trò chuyện từ Nova."));
-  await visible(qr.getByRole("button", { name: "Hồ sơ: Lê Minh Khoa" }));
-  console.log("ok  QR hết hạn/làm mới, scanned → approved, handoff mở đúng cuộc trò chuyện");
+  const talentButton = qr.getByRole("button", { name: "Hồ sơ: Minh Anh" });
+  await visible(talentButton);
+  assert.equal(pairings.get(scanned.pairingId).status, "CONSUMED", "Challenge chỉ được tiêu thụ một lần");
+  const qrCookies = await qr.context().cookies(`${BASE}/api/auth/nova/qr`);
+  assert.equal(qrCookies.some((c) => c.name === "replyn_qr_pairing"), false, "Xóa cookie challenge sau khi đăng nhập");
+  const talentSession = qrCookies.find((c) => c.name === "replyn_session");
+  assert.ok(talentSession?.httpOnly, "Phiên Talent là cookie HttpOnly");
+  const talentState = await qr.evaluate(() => fetch("/api/auth/session").then((r) => r.json()));
+  assert.deepEqual(talentState.identity, { provider: "NOVA", subjectType: "TALENT", displayName: "Minh Anh", role: "freelancer", verifiedBy: "NOVA_MOBILE" });
+  assert.ok(!(await qr.content()).includes(TALENT.subjectId), "Không hiển thị mã Talent nội bộ");
 
-  /* 6. Lỗi tạo mã → thử lại; open redirect bị chặn */
-  const fail = await open(`${LOGIN}?returnTo=//evil.example`);
-  await visible(qrImage(fail));
-  await demoStep(fail, "Lỗi tạo mã");
-  await visible(fail.getByText("Không thể tạo mã", { exact: true }));
-  await fail.getByRole("button", { name: "Thử lại" }).click();
-  await visible(qrImage(fail));
-  await demoStep(fail, "Mô phỏng: điện thoại quét mã");
-  await demoStep(fail, "Mô phỏng: xác nhận trên điện thoại");
-  await fail.waitForURL(`${BASE}/`, { timeout: 8000 });
-  console.log("ok  Lỗi tạo mã có thử lại; returnTo ngoài site bị bỏ qua");
+  // menu tài khoản: tên + "Nova Mobile đã xác minh", không có Nova ID
+  await talentButton.click();
+  const talentCard = qr.getByRole("region", { name: "Tài khoản Nova" });
+  await visible(talentCard.getByText("Minh Anh"));
+  await visible(talentCard.getByText("Nova Mobile đã xác minh"));
+  await visible(talentCard.getByText("Nội dung trò chuyện hiện là dữ liệu demo."));
+  assert.equal(await talentCard.getByText(/NV[BF]-|Nova ID|contractor-/).count(), 0, "Talent không có Nova ID");
+  await shot(qr, "account-talent-1440");
+  await qr.mouse.click(1000, 70);
 
+  // refresh giữ phiên Talent và vai Freelancer
+  await qr.evaluate(() => sessionStorage.clear());
+  await qr.reload();
+  await visible(talentButton);
+
+  // đăng xuất Nova xóa phiên như với Business
+  await talentButton.click();
+  await talentCard.getByRole("button", { name: "Đăng xuất Nova" }).click();
+  await qr.waitForURL(`${BASE}/auth/nova`);
+  assert.equal((await qr.context().cookies()).some((c) => c.name === "replyn_session"), false, "Đăng xuất xóa phiên Talent");
+  assert.deepEqual(await qr.evaluate(() => fetch("/api/auth/session").then((r) => r.json())), { authenticated: false });
+  await qr.context().close();
+  console.log("ok  QR thật: chờ → Nova Mobile xác nhận → phiên Talent HttpOnly, handoff đúng chat, menu, refresh, đăng xuất");
+
+  /* 6. Không handoff → mở kênh Nova; hết hạn, đã dùng, lỗi tạo mã; returnTo ngoài site bị bỏ qua */
+  const plain = await open(`${LOGIN}?returnTo=//evil.example`);
+  const expiring = await scanQr(plain);
+  pairings.get(expiring.pairingId).status = "EXPIRED";
+  await visible(plain.getByText("Mã đã hết hạn", { exact: true }), 8000);
+  await shot(plain, "login-qr-expired-1440");
+  await plain.getByRole("button", { name: "Tạo mã mới" }).click();
+  const used = await scanQr(plain);
+  assert.notEqual(used.pairingId, expiring.pairingId, "Tạo mã mới tạo challenge mới");
+  pairings.get(used.pairingId).status = "CONSUMED";
+  await visible(plain.getByText("Mã đã được dùng", { exact: true }), 8000);
+  qrStats.failNextCreate = true;
+  await plain.getByRole("button", { name: "Tạo mã mới" }).click();
+  await visible(plain.getByText("Không thể tạo mã", { exact: true }), 8000);
+  await plain.getByRole("button", { name: "Thử lại" }).click();
+  const fresh = await scanQr(plain);
+  approve(fresh.pairingId, fresh.qrSecret);
+  await plain.waitForURL(`${BASE}/`, { timeout: 8000 });
+  await visible(plain.getByRole("region", { name: "Trò chuyện: Đội ngũ Nova" }));
+  await visible(plain.getByText("Đã đăng nhập bằng Nova Mobile."));
+  await plain.context().close();
+  console.log("ok  Hết hạn/đã dùng/lỗi tạo mã có thể tạo lại; không handoff → kênh Nova; returnTo ngoài site bị bỏ qua");
+
+  /* 6b. Rời trang thì ngừng hỏi; URL mã QR mở bằng camera thường không giữ secret */
+  const leaving = await open(LOGIN);
+  await scanQr(leaving);
+  await leaving.goto(`${BASE}/`);
+  const pollsAfterLeave = qrStats.consumeCalls;
+  await leaving.waitForTimeout(4500);
+  assert.equal(qrStats.consumeCalls, pollsAfterLeave, "Rời trang thì dừng hỏi");
+  await leaving.goto(`${LOGIN}?pairing=${randomUUID()}&secret=${randomBytes(32).toString("base64url")}&exp=1&action=login`);
+  await visible(leaving.getByText(/chỉ dùng được trong ứng dụng Nova Mobile/));
+  assert.equal(leaving.url(), LOGIN, "Xóa secret khỏi thanh địa chỉ");
+  await leaving.context().close();
+  console.log("ok  Rời trang dừng polling; mở URL QR trong trình duyệt chỉ hiện hướng dẫn và xóa secret khỏi URL");
   /* 7. Responsive: cả hai tab ở laptop và mobile */
   for (const [w, h] of [[1440, 900], [1280, 720], [390, 844], [360, 800]]) {
     const p = await open(`${LOGIN}?handoff=demo-handoff-01&conversation=nova-khoa`, { width: w, height: h });
@@ -333,7 +451,7 @@ try {
   console.log("ok  1440/1280/390/360: không tràn ngang, QR ≥ 220px; desktop đổi tab không đổi kích thước khung");
 
   assert.deepEqual(errors, [], "Browser console errors");
-  console.log("PASS: đăng nhập Replyn bằng Nova (Nova ID qua server, QR thử nghiệm)");
+  console.log("PASS: đăng nhập Replyn bằng Nova (Nova ID và mã QR qua server)");
 } finally {
   await browser.close();
   fakeNova.close();
