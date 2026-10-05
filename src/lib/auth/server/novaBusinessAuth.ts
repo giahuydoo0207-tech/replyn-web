@@ -96,7 +96,9 @@ export type AuthErrorCode =
   | "not_configured"
   | "unsupported_media_type"
   | "payload_too_large"
-  | "forbidden";
+  | "forbidden"
+  | "unauthenticated"
+  | "not_found";
 
 /** Trạng thái mã QR khi trình duyệt hỏi lại (ngoài lúc đã đăng nhập). */
 export type QrPollStatus = "pending" | "expired" | "used";
@@ -106,6 +108,7 @@ export type AuthResponseBody =
   | { authenticated: false }
   | { qrUrl: string; expiresAt: string }
   | { status: QrPollStatus }
+  | { workspaces: PublicWorkspace[] }
   | { error: AuthErrorCode };
 
 export function liveAuthDeps(): AuthDeps {
@@ -630,4 +633,160 @@ export function handleSession(request: Request, deps: AuthDeps): Response {
 export function handleLogout(request: Request, deps: AuthDeps): Response {
   if (crossOrigin(request)) return json(403, { error: "forbidden" });
   return json(200, { authenticated: false }, clearSessionCookie({ secure: deps.env.NODE_ENV === "production" }));
+}
+
+/* ---------- workspace từ đề xuất Nova đã được chấp nhận ---------- */
+
+/**
+ * Workspace trả cho trình duyệt: thỏa thuận đã chấp nhận và tên hiển thị hai bên. Không có mã hồ sơ nội bộ,
+ * không có id đề xuất; `workspaceId` là id mờ do Nova cấp khi freelancer chấp nhận.
+ */
+export interface PublicWorkspace {
+  workspaceId: string;
+  projectName: string;
+  scope: string;
+  deliverables: string[];
+  revisionLimit: number | null;
+  currency: string;
+  totalAmount: number;
+  startDate: string | null;
+  deadline: string | null;
+  reviewPeriodDays: number | null;
+  milestones: { title: string; amount: number; deadline: string | null }[];
+  notes: string;
+  acceptedAt: string;
+  businessName: string;
+  freelancerName: string;
+  viewerRole: "business" | "freelancer";
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_WORKSPACES = 50;
+
+function cleanText(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim();
+  return text.length <= max ? text : null;
+}
+
+/** null là hợp lệ (trường không bắt buộc); undefined nghĩa là dữ liệu sai. */
+function optionalDate(value: unknown): string | null | undefined {
+  if (value === null || value === undefined) return null;
+  return typeof value === "string" && ISO_DATE.test(value) ? value : undefined;
+}
+
+function optionalInt(value: unknown, min: number, max: number): number | null | undefined {
+  if (value === null || value === undefined) return null;
+  return Number.isInteger(value) && (value as number) >= min && (value as number) <= max ? (value as number) : undefined;
+}
+
+function positiveAmount(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 1_000_000_000 ? value : null;
+}
+
+/** Kiểm tra chặt dữ liệu Nova trả về; một trường sai là bỏ cả workspace thay vì hiển thị nửa vời. */
+export function parseNovaWorkspace(raw: unknown, viewerRole: "business" | "freelancer"): PublicWorkspace | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const w = raw as Record<string, unknown>;
+  const projectName = cleanText(w.projectName, 160);
+  const scope = cleanText(w.scope, 4000);
+  const notes = w.notes === null || w.notes === undefined ? "" : cleanText(w.notes, 2000);
+  const businessName = cleanDisplayName(w.businessName);
+  const freelancerName = cleanDisplayName(w.freelancerName);
+  const totalAmount = positiveAmount(w.totalAmount);
+  const startDate = optionalDate(w.startDate);
+  const deadline = optionalDate(w.deadline);
+  const revisionLimit = optionalInt(w.revisionLimit, 0, 20);
+  const reviewPeriodDays = optionalInt(w.reviewPeriodDays, 1, 30);
+  const acceptedAt = typeof w.acceptedAt === "string" && Number.isFinite(Date.parse(w.acceptedAt)) ? w.acceptedAt : null;
+  if (
+    typeof w.workspaceId !== "string" || !UUID.test(w.workspaceId) || !projectName || scope === null || notes === null ||
+    !businessName || !freelancerName || totalAmount === null || startDate === undefined || deadline === undefined ||
+    revisionLimit === undefined || reviewPeriodDays === undefined || !acceptedAt || w.currency !== "USDC" ||
+    w.viewerRole !== viewerRole || !Array.isArray(w.deliverables) || !Array.isArray(w.milestones) ||
+    w.deliverables.length > 20 || w.milestones.length === 0 || w.milestones.length > 10
+  ) {
+    return null;
+  }
+  const deliverables: string[] = [];
+  for (const item of w.deliverables) {
+    const text = cleanText(item, 300);
+    if (!text) return null;
+    deliverables.push(text);
+  }
+  const milestones: PublicWorkspace["milestones"] = [];
+  for (const item of w.milestones) {
+    if (!item || typeof item !== "object") return null;
+    const m = item as Record<string, unknown>;
+    const title = cleanText(m.title, 160);
+    const amount = positiveAmount(m.amount);
+    const due = optionalDate(m.deadline);
+    if (!title || amount === null || due === undefined) return null;
+    milestones.push({ title, amount, deadline: due });
+  }
+  return {
+    workspaceId: w.workspaceId.toLowerCase(), projectName, scope, deliverables, revisionLimit, currency: "USDC", totalAmount,
+    startDate, deadline, reviewPeriodDays, milestones, notes, acceptedAt, businessName, freelancerName, viewerRole,
+  };
+}
+
+export type WorkspaceLookup = { kind: "ok"; workspaces: PublicWorkspace[] } | { kind: "not_found" } | { kind: "unavailable" };
+
+/** Hỏi Nova các workspace mà danh tính trong phiên được phép mở. Danh tính lấy từ phiên đã ký, không từ trình duyệt. */
+export async function lookupNovaWorkspaces(
+  novaOrigin: string,
+  clientSecret: string,
+  session: ReplynSession,
+  workspaceId: string | null,
+  fetchImpl: typeof fetch,
+  timeoutMs: number,
+): Promise<WorkspaceLookup> {
+  const response = await postToNova(
+    `${novaOrigin}/api/v1/integrations/replyn/workspaces/lookup`,
+    { subjectType: session.subjectType, subjectId: session.subjectId, ...(workspaceId ? { workspaceId } : {}) },
+    { [REPLYN_CLIENT_SECRET_HEADER]: clientSecret },
+    fetchImpl,
+    timeoutMs,
+  );
+  if (!response) return { kind: "unavailable" };
+  // 404 chỉ có nghĩa "không có workspace này" khi hỏi một id; với danh sách đó là lỗi tích hợp.
+  if (response.status === 404 && workspaceId) return { kind: "not_found" };
+  if (response.status !== 200) return { kind: "unavailable" };
+  const body = await readJsonObject(response);
+  if (!body || !Array.isArray(body.workspaces) || body.workspaces.length > MAX_WORKSPACES) return { kind: "unavailable" };
+  const workspaces: PublicWorkspace[] = [];
+  for (const raw of body.workspaces) {
+    const parsed = parseNovaWorkspace(raw, session.role);
+    if (!parsed) return { kind: "unavailable" };
+    workspaces.push(parsed);
+  }
+  // Nova đã lọc theo workspaceId; kiểm tra lại để không bao giờ trả nhầm workspace khác.
+  if (workspaceId && !workspaces.every((w) => w.workspaceId === workspaceId)) return { kind: "unavailable" };
+  if (workspaceId && workspaces.length === 0) return { kind: "not_found" };
+  return { kind: "ok", workspaces };
+}
+
+/**
+ * GET /api/workspaces và GET /api/workspaces/{id}: workspace Replyn của người đang đăng nhập. Không có phiên
+ * thì 401; workspace không tồn tại và workspace của người khác đều là 404.
+ */
+export async function handleWorkspaces(request: Request, deps: AuthDeps, workspaceId: string | null): Promise<Response> {
+  if (!sameOrigin(request)) return json(403, { error: "forbidden" });
+  const config = readQrConfig(deps.env);
+  if (!config) return json(503, { error: "not_configured" });
+  const token = readCookie(request.headers.get("cookie"), SESSION_COOKIE);
+  const session = verifySession(token, config.secret, Math.floor(deps.now() / 1000));
+  if (!session) return json(401, { error: "unauthenticated" });
+  if (workspaceId !== null && !UUID.test(workspaceId)) return json(404, { error: "not_found" });
+  const result = await lookupNovaWorkspaces(
+    config.novaOrigin,
+    config.clientSecret,
+    session,
+    workspaceId?.toLowerCase() ?? null,
+    deps.fetch,
+    deps.timeoutMs ?? NOVA_TIMEOUT_MS,
+  );
+  if (result.kind === "not_found") return json(404, { error: "not_found" });
+  if (result.kind === "unavailable") return json(503, { error: "unavailable" });
+  return json(200, { workspaces: result.workspaces });
 }

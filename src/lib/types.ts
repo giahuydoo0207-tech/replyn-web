@@ -119,13 +119,14 @@ export interface Workspace {
   submissions: Submission[];
   disputes: Dispute[];
   evidence: EvidenceEvent[];
+  /** Có khi workspace được mở từ đề xuất Nova thật (không phải dữ liệu mẫu). */
+  agreement?: NovaAgreement;
 }
 
 export type MessageKind =
   | "text"
   | "file"
   | "system"
-  | "proposal"
   | "milestone"
   | "submission"
   | "payment"
@@ -154,12 +155,28 @@ export interface Message {
   link?: "terms" | "milestones" | "files" | "evidence" | "dispute";
 }
 
-export type ProposalStatus = "pending" | "opened" | "later";
-
+/** Giai đoạn của một đề xuất đã được chấp nhận trên Nova, dùng để dựng workspace. */
 export interface ProposalDraft {
   projectTitle: string;
   feeTier: FeeTier;
   milestones: Pick<Milestone, "id" | "title" | "amount" | "deadline" | "criteria" | "scope" | "deliverables">[];
+}
+
+/**
+ * Thỏa thuận gốc: doanh nghiệp đề xuất trong Nova, freelancer chấp nhận trong Nova Mobile. Replyn chỉ hiển thị
+ * và thực thi thỏa thuận này, không bao giờ tạo đề xuất.
+ */
+export interface NovaAgreement {
+  /** id workspace mờ do Nova cấp khi đề xuất được chấp nhận */
+  novaWorkspaceId: string;
+  scope: string;
+  deliverables: string[];
+  notes: string;
+  totalAmount: number;
+  currency: string;
+  startDate: string | null;
+  deadline: string | null;
+  acceptedAt: number;
 }
 
 export interface Conversation {
@@ -173,9 +190,7 @@ export interface Conversation {
   pinned?: boolean;
   muted?: boolean;
   workspaceId?: string;
-  proposal?: ProposalDraft; // job đã phỏng vấn trên Nova, dùng để đề xuất Replyn
-  proposalStatus?: ProposalStatus;
-  proposalMessageId?: string;
+  /** Lịch sử Nova Chat (chỉ xem) đã dẫn tới workspace này. */
   linkedWorkspaceChatId?: string;
   /** Nova Chat đã tạo ra workspace này, dùng để quay lại đúng cuộc phỏng vấn ban đầu. */
   sourceNovaChatId?: string;

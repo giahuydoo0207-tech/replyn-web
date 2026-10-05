@@ -68,6 +68,11 @@ const fakeNova = createServer((req, res) => {
       p.status = "CONSUMED";
       return reply(200, { status: "CONSUMED", identity: { provider: "NOVA", subjectType: "TALENT", role: "freelancer", ...TALENT }, approvedAt: new Date().toISOString() });
     }
+    // Sau khi đăng nhập, Replyn hỏi workspace của người dùng; tài khoản thử nghiệm chưa có đề xuất nào được chấp nhận.
+    if (req.url === "/api/v1/integrations/replyn/workspaces/lookup") {
+      if (req.headers["x-replyn-client-secret"] !== QR_CLIENT_SECRET) return reply(401, { status: "UNAUTHORIZED" });
+      return body.workspaceId ? reply(404, { status: "NOT_FOUND" }) : reply(200, { workspaces: [] });
+    }
     novaCalls.push(body.novaId);
     if (req.url !== "/api/v1/nova-credentials/verify") return reply(404, {});
     if (body.novaId === DOWN_ID) return reply(500, { error: "internal" });

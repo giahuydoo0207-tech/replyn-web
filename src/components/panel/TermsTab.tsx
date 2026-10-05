@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, LockOpen } from "lucide-react";
+import { FileCheck, Lock, LockOpen } from "lucide-react";
 import { FEE_LABEL, usdc } from "@/lib/fees";
 import { ddmmyyyy, hhmm } from "@/lib/format";
 import { useStore } from "@/lib/store";
@@ -13,8 +13,30 @@ export function TermsTab({ ws }: { ws: Workspace }) {
   const biz = state.users[ws.businessId];
   const fl = state.users[ws.freelancerId];
 
+  const agreement = ws.agreement;
+
   return (
     <div className="space-y-4">
+      {agreement && (
+        <section className="rounded-xl bg-panel p-4" aria-label="Thỏa thuận từ Nova">
+          <div className="flex items-center gap-2">
+            <FileCheck size={16} className="text-ink-2" />
+            <h3 className="text-[15px] font-semibold">Thỏa thuận từ Nova</h3>
+          </div>
+          <p className="mt-1 text-[13px] text-ink-2">
+            {biz.name} gửi đề xuất trên Nova, {fl.name} chấp nhận ngày {ddmmyyyy(agreement.acceptedAt)}. Replyn thực hiện đúng thỏa thuận này.
+          </p>
+          <p className="mt-3 whitespace-pre-wrap text-[14px]">{agreement.scope}</p>
+          <dl className="mt-3 grid grid-cols-3 gap-2 text-[13px]">
+            <Stat k="Tổng ngân sách" v={usdc(agreement.totalAmount)} />
+            <Stat k="Bắt đầu" v={isoDate(agreement.startDate)} />
+            <Stat k="Deadline" v={isoDate(agreement.deadline)} />
+          </dl>
+          {agreement.deliverables.length > 0 && <List title="Sản phẩm bàn giao" items={agreement.deliverables} />}
+          {agreement.notes && <List title="Ghi chú" items={[agreement.notes]} />}
+          <p className="mt-3 text-[12px] text-muted">Cấp vốn, giải ngân và phí hiện đang được mô phỏng. Nova và Replyn chưa giữ tiền thật.</p>
+        </section>
+      )}
       <section className="rounded-xl bg-panel p-4">
         <div className="flex items-center gap-2">
           {locked ? <Lock size={16} className="text-ink-2" /> : <LockOpen size={16} className="text-amber" />}
@@ -61,11 +83,17 @@ export function TermsTab({ ws }: { ws: Workspace }) {
           </dl>
 
           {m.deliverables && m.deliverables.length > 0 && <List title="Sản phẩm bàn giao" items={m.deliverables} />}
-          <List title="Tiêu chí nghiệm thu" items={m.criteria} />
+          {m.criteria.length > 0 && <List title="Tiêu chí nghiệm thu" items={m.criteria} />}
         </section>
       ))}
     </div>
   );
+}
+
+/** "2026-11-10" -> "10/11/2026" */
+function isoDate(value: string | null) {
+  const match = value ? /^(\d{4})-(\d{2})-(\d{2})/.exec(value) : null;
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : "—";
 }
 
 function List({ title, items }: { title: string; items: string[] }) {

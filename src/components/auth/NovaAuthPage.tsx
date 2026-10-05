@@ -77,7 +77,8 @@ export function NovaAuthPage() {
       const handoffChat = handoff && handoff.members.some((m) => m.id === seat) ? handoff.conversationId : null;
       const conversation = handoffChat ?? (returnTo ? null : fallbackChat);
       setSignedIn({ name, toConversation: !!conversation });
-      queuePendingLogin(conversation, handoffChat ? undefined : notice);
+      // Không có handoff hay returnTo: kênh mặc định chỉ là dự phòng, workspace thật từ Nova được mở trước.
+      queuePendingLogin(conversation, handoffChat ? undefined : notice, !handoffChat && !returnTo);
       window.setTimeout(() => router.replace(conversation ? "/" : (returnTo ?? "/")), 900);
     },
     [handoff, returnTo, router],
@@ -136,6 +137,12 @@ export function NovaAuthPage() {
             </p>
           )}
           {handoff && <HandoffSummary info={handoff} />}
+          {!handoff && returnTo?.startsWith("/workspace/") && (
+            <p role="status" className="rounded-lg bg-(--na-subtle) px-3.5 py-3 text-[14px] text-(--na-ink-2)">
+              Đăng nhập để mở workspace Replyn của đề xuất đã được chấp nhận trên Nova. Doanh nghiệp dùng Nova ID,
+              freelancer quét mã QR bằng Nova Mobile.
+            </p>
+          )}
           <AuthMethodTabs value={method} onChange={(m) => !signedIn && choose(m)} />
         </div>
 

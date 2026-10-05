@@ -35,7 +35,9 @@ export function resolveHandoff(handoff: string | null, conversation: string | nu
       color: u.color,
       initials: u.name.split(/\s+/).slice(-2).map((w) => w[0]!.toUpperCase()).join(""),
     }));
-  return { handoff, conversationId: c.id, title: c.title, project: c.proposal?.projectTitle, members };
+  const linked = c.linkedWorkspaceChatId ? s.conversations[c.linkedWorkspaceChatId] : undefined;
+  const project = linked?.workspaceId ? s.workspaces[linked.workspaceId]?.title : undefined;
+  return { handoff, conversationId: c.id, title: c.title, project, members };
 }
 
 /** Chỉ cho phép đường dẫn nội bộ, chặn open redirect (`//evil.com`, `https://…`). */

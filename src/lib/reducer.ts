@@ -8,11 +8,39 @@ import type {
   Message,
   Milestone,
   MilestoneStatus,
+  NovaAgreement,
   ProposalDraft,
   Role,
   User,
   Workspace,
 } from "./types";
+
+/**
+ * Workspace thật từ một đề xuất Nova đã được chấp nhận, như server Replyn trả về sau khi kiểm tra quyền.
+ * Không chứa mã hồ sơ nội bộ; chỉ có tên hiển thị của hai bên và vai trò của người đang xem.
+ */
+export interface NovaWorkspace {
+  workspaceId: string;
+  projectName: string;
+  scope: string;
+  deliverables: string[];
+  revisionLimit: number | null;
+  currency: string;
+  totalAmount: number;
+  startDate: string | null;
+  deadline: string | null;
+  reviewPeriodDays: number | null;
+  milestones: { title: string; amount: number; deadline: string | null }[];
+  notes: string;
+  acceptedAt: string;
+  businessName: string;
+  freelancerName: string;
+  viewerRole: Role;
+}
+
+/** Ghế của danh tính Nova thật đang đăng nhập (thay cho ghế dữ liệu mẫu). */
+export const NOVA_ME = "nova-me";
+export const novaWsId = (workspaceId: string) => `nova-${workspaceId}`;
 
 export type PanelTab = "terms" | "milestones" | "files" | "evidence" | "dispute";
 export type ListFilter = "all" | "unread" | "replyn" | "tasks" | "files" | "review" | "dispute";
@@ -57,9 +85,6 @@ export type Action =
   | { type: "FLASH"; id: string | null }
   | { type: "SEND_TEXT"; chatId: string; text: string; senderId?: string; replyToId?: string }
   | { type: "SEND_FILE"; chatId: string; file: NewFile; senderId?: string; text?: string }
-  | { type: "PROPOSE_REPLYN"; chatId: string; senderId?: string }
-  | { type: "PROPOSAL_LATER"; chatId: string }
-  | { type: "OPEN_REPLYN"; chatId: string }
   | {
       type: "CREATE_WORKSPACE";
       wsId: string;
@@ -68,9 +93,14 @@ export type Action =
       freelancerId: string;
       feeTier: FeeTier;
       draft: ProposalDraft["milestones"];
+      /** Nova Chat (chỉ xem) mà đề xuất đã được chấp nhận trong đó */
       fromNova?: string;
       unread?: number;
+      reviewDays?: number;
+      revisionLimit?: number;
+      agreement?: NovaAgreement;
     }
+  | { type: "LOAD_NOVA_WORKSPACES"; viewer: { role: Role; name: string }; workspaces: NovaWorkspace[] }
   | { type: "LOCK_TERMS"; wsId: string }
   | { type: "FUND"; wsId: string; milestoneId: string }
   | { type: "SUBMIT"; wsId: string; milestoneId: string; file: NewFile; note: string }
@@ -320,73 +350,6 @@ export function reducer(state: AppState, action: Action): AppState {
       return s2;
     }
 
-    case "PROPOSE_REPLYN": {
-      const conv = state.conversations[action.chatId];
-      if (!conv?.proposal) return state;
-      const s = tick(state);
-      const [s1, msg] = pushMessage(s, {
-        chatId: conv.id,
-        senderId: action.senderId ?? me(s),
-        kind: "proposal",
-      });
-      return {
-        ...s1,
-        conversations: {
-          ...s1.conversations,
-          [conv.id]: {
-            ...s1.conversations[conv.id],
-            proposalStatus: "pending",
-            proposalMessageId: msg.id,
-          },
-        },
-      };
-    }
-
-    case "PROPOSAL_LATER": {
-      const conv = state.conversations[action.chatId];
-      if (!conv) return state;
-      return {
-        ...state,
-        conversations: { ...state.conversations, [conv.id]: { ...conv, proposalStatus: "later" } },
-      };
-    }
-
-    case "OPEN_REPLYN": {
-      const conv = state.conversations[action.chatId];
-      if (!conv?.proposal) return state;
-      if (conv.linkedWorkspaceChatId) {
-        return reducer(state, { type: "SELECT_CHAT", chatId: conv.linkedWorkspaceChatId });
-      }
-      const [businessId, freelancerId] = splitRoles(state, conv.memberIds);
-      const [s0, wsId] = nextId(state, "ws");
-      let s = reducer(s0, {
-        type: "CREATE_WORKSPACE",
-        wsId,
-        title: conv.proposal.projectTitle,
-        businessId,
-        freelancerId,
-        feeTier: conv.proposal.feeTier,
-        draft: conv.proposal.milestones,
-        fromNova: conv.id,
-      });
-      s = {
-        ...s,
-        conversations: {
-          ...s.conversations,
-          [conv.id]: {
-            ...s.conversations[conv.id],
-            proposalStatus: "opened",
-            linkedWorkspaceChatId: wsChatId(wsId),
-          },
-        },
-      };
-      s = {
-        ...s,
-        ui: { ...s.ui, panelTab: "milestones" },
-      };
-      return reducer(s, { type: "SELECT_CHAT", chatId: wsChatId(wsId) });
-    }
-
     case "CREATE_WORKSPACE": {
       const s = tick(state);
       const chatId = wsChatId(action.wsId);
@@ -394,12 +357,13 @@ export function reducer(state: AppState, action: Action): AppState {
       const milestones: Milestone[] = action.draft.map((d) => ({
         ...d,
         status: "awaiting_funding",
-        reviewDays: 3,
-        revisionLimit: 2,
+        reviewDays: action.reviewDays ?? 3,
+        revisionLimit: action.revisionLimit ?? 2,
         revisionsUsed: 0,
         submissionIds: [],
       }));
       const ws: Workspace = {
+        agreement: action.agreement,
         id: action.wsId,
         title: action.title,
         businessId: action.businessId,
@@ -423,26 +387,33 @@ export function reducer(state: AppState, action: Action): AppState {
         workspaceId: action.wsId,
         sourceNovaChatId: action.fromNova,
       };
+      const novaChat = action.fromNova ? s.conversations[action.fromNova] : undefined;
       let s1: AppState = {
         ...s,
         workspaces: { ...s.workspaces, [action.wsId]: ws },
-        conversations: { ...s.conversations, [chatId]: conv },
+        conversations: {
+          ...s.conversations,
+          [chatId]: conv,
+          ...(novaChat ? { [novaChat.id]: { ...novaChat, linkedWorkspaceChatId: chatId } } : {}),
+        },
         messages: { ...s.messages, [chatId]: [] },
       };
       [s1] = pushMessage(s1, {
         chatId,
         senderId: SYSTEM_ID,
         kind: "system",
-        text: "Workspace Replyn được tạo",
+        text: action.agreement || action.fromNova
+          ? "Workspace Replyn được mở từ đề xuất đã được chấp nhận trên Nova"
+          : "Workspace Replyn được tạo",
       });
       let s3 = s1;
       [s3] = addEvidence(s3, action.wsId, {
         type: "workspace_created",
         actorId: SYSTEM_ID,
         title: "Workspace được tạo",
-        description: action.fromNova
-          ? `Từ đề xuất trên Nova Chat · ${milestones.length} milestone, chờ hai bên khóa điều khoản`
-          : `${milestones.length} milestone, chờ hai bên khóa điều khoản`,
+        description: action.agreement || action.fromNova
+          ? `Từ đề xuất đã được chấp nhận trên Nova · ${milestones.length} giai đoạn, chờ hai bên xác nhận thỏa thuận`
+          : `${milestones.length} giai đoạn, chờ hai bên xác nhận thỏa thuận`,
         messageId: s3.messages[chatId][0].id,
       });
       for (const [i, m] of milestones.entries()) {
@@ -456,6 +427,63 @@ export function reducer(state: AppState, action: Action): AppState {
         });
       }
       return s3;
+    }
+
+    case "LOAD_NOVA_WORKSPACES": {
+      if (!action.workspaces.length) return state;
+      const role = action.viewer.role;
+      const peerTitle = role === "business" ? "Freelancer · Nova" : "Doanh nghiệp · Nova";
+      // Danh tính thật ngồi vào ghế riêng, không mượn ghế dữ liệu mẫu (u-ha / u-khoa).
+      let s: AppState = {
+        ...state,
+        role,
+        roleUser: { ...state.roleUser, [role]: NOVA_ME },
+        users: {
+          ...state.users,
+          [NOVA_ME]: { id: NOVA_ME, name: action.viewer.name, short: shortName(action.viewer.name), title: role === "business" ? "Doanh nghiệp · Nova" : "Freelancer · Nova", color: "#FFD33D" },
+        },
+      };
+      for (const w of action.workspaces) {
+        const wsId = novaWsId(w.workspaceId);
+        // Đã có trong tab này: giữ tiến độ mô phỏng, không dựng lại.
+        if (s.workspaces[wsId]) continue;
+        const peerId = `nova-peer-${w.workspaceId}`;
+        const peerName = role === "business" ? w.freelancerName : w.businessName;
+        s = { ...s, users: { ...s.users, [peerId]: { id: peerId, name: peerName, short: shortName(peerName), title: peerTitle, color: "#5FD4E0" } } };
+        const acceptedAt = Date.parse(w.acceptedAt);
+        s = reducer(
+          { ...s, clock: Number.isFinite(acceptedAt) ? acceptedAt : s.clock },
+          {
+            type: "CREATE_WORKSPACE",
+            wsId,
+            title: w.projectName,
+            businessId: role === "business" ? NOVA_ME : peerId,
+            freelancerId: role === "freelancer" ? NOVA_ME : peerId,
+            feeTier: "BASIC",
+            reviewDays: w.reviewPeriodDays ?? undefined,
+            revisionLimit: w.revisionLimit ?? undefined,
+            draft: w.milestones.map((m, i) => ({
+              id: `${wsId}-m${i + 1}`,
+              title: m.title,
+              amount: m.amount,
+              deadline: isoToDdmmyyyy(m.deadline),
+              criteria: [],
+            })),
+            agreement: {
+              novaWorkspaceId: w.workspaceId,
+              scope: w.scope,
+              deliverables: w.deliverables,
+              notes: w.notes,
+              totalAmount: w.totalAmount,
+              currency: w.currency,
+              startDate: w.startDate,
+              deadline: w.deadline,
+              acceptedAt: Number.isFinite(acceptedAt) ? acceptedAt : s.clock,
+            },
+          },
+        );
+      }
+      return { ...s, clock: Math.max(state.clock, s.clock) };
     }
 
     case "LOCK_TERMS": {
@@ -765,20 +793,25 @@ export function visibleTo(s: AppState, chatId: string): boolean {
   return c.memberIds.includes(me(s));
 }
 
-export function splitRoles(s: AppState, memberIds: string[]): [string, string] {
-  const business = memberIds.find((id) => id === s.roleUser.business) ?? memberIds[0];
-  const freelancer = memberIds.find((id) => id !== business) ?? memberIds[1];
-  return [business, freelancer];
+/** "Lê Minh Khoa" -> "Minh Khoa" */
+function shortName(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(-2).join(" ") || name;
+}
+
+/** "2026-11-10" -> "10/11/2026" (định dạng hạn của milestone) */
+function isoToDdmmyyyy(value: string | null): string {
+  const match = value ? /^(\d{4})-(\d{2})-(\d{2})/.exec(value) : null;
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : "—";
 }
 
 /** Tên Việt: lấy 2 từ cuối (Lê Minh Khoa -> MK, Mộc Coffee -> MC) */
 export function initials(name: string): string {
-  return name
+  // Tên dự án từ Nova là văn bản tự do: bỏ dấu câu để "Landing page (E2E)" không thành "P(".
+  const words = name
     .split(/\s+/)
-    .filter(Boolean)
-    .slice(-2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("");
+    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter(Boolean);
+  return words.slice(-2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 }
 
 /** Trạng thái nổi bật nhất của workspace để hiển thị badge ở chat list */

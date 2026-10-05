@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState, type Dispatch, type ReactNode } from "react";
-import { clearTabLogin, consumePendingLogin } from "./auth/demoSession";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode } from "react";
+import { clearTabLogin, consumePendingLogin, type PendingLogin } from "./auth/demoSession";
 import { fetchNovaSession, logoutBusiness, type NovaIdentity } from "./auth/novaBusinessClient";
-import { me, reducer, type Action, type AppState } from "./reducer";
+import { fetchNovaWorkspaces } from "./auth/novaWorkspaceClient";
+import { me, novaWsId, reducer, wsChatId, type Action, type AppState } from "./reducer";
 import { initialState } from "./seed";
 
 const StoreCtx = createContext<{ state: AppState; dispatch: Dispatch<Action> } | null>(null);
@@ -17,31 +18,69 @@ interface NovaSession {
 
 const NovaSessionCtx = createContext<NovaSession | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+/**
+ * `workspaceId`: workspace Nova cần mở (route /workspace/{id}). Chưa đăng nhập thì chuyển sang đăng nhập Nova
+ * rồi quay lại đúng đường dẫn này; server kiểm tra quyền truy cập workspace.
+ */
+export function StoreProvider({ children, workspaceId }: { children: ReactNode; workspaceId?: string }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [notice, setNotice] = useState<string | null>(null);
   const [identity, setIdentity] = useState<NovaIdentity | null>(null);
+  // Đọc đúng một lần: StrictMode chạy effect hai lần mà sessionStorage chỉ trả kết quả đăng nhập ở lần đầu.
+  const pendingRef = useRef<PendingLogin | null | undefined>(undefined);
 
   // Đăng nhập Nova: mở đúng cuộc trò chuyện một lần sau khi mount. Vai trò (Business hoặc Freelancer)
   // chỉ đến từ cookie phiên do server xác minh, nên refresh trang vẫn giữ đúng vai.
   useEffect(() => {
     let alive = true;
-    fetchNovaSession().then((verified) => {
-      if (!alive || !verified) return;
-      setIdentity(verified);
-      dispatch({ type: "SET_ROLE", role: verified.role });
-    });
-    const pending = consumePendingLogin();
+    const firstRun = pendingRef.current === undefined;
+    if (firstRun) pendingRef.current = consumePendingLogin();
+    const pending = pendingRef.current;
+    // hiện sau lần render đầu, không hủy trong cleanup
+    const show = (message: string) => window.setTimeout(() => setNotice(message), 0);
     if (pending) {
       dispatch({ type: "SELECT_CHAT", chatId: pending.conversationId });
-      const message = pending.notice;
-      // hiện sau lần render đầu; không hủy trong cleanup vì StrictMode chạy effect hai lần mà pending chỉ đọc được một lần
-      if (message) window.setTimeout(() => setNotice(message), 0);
+      if (pending.notice && firstRun) show(pending.notice);
     }
+    fetchNovaSession().then(async (verified) => {
+      if (!alive) return;
+      if (!verified) {
+        if (workspaceId) window.location.replace(`/auth/nova?returnTo=${encodeURIComponent(`/workspace/${workspaceId}`)}`);
+        return;
+      }
+      setIdentity(verified);
+      dispatch({ type: "SET_ROLE", role: verified.role });
+      const [list, target] = await Promise.all([
+        fetchNovaWorkspaces(),
+        workspaceId ? fetchNovaWorkspaces(workspaceId) : Promise.resolve(null),
+      ]);
+      if (!alive) return;
+      const workspaces = [...(target?.kind === "ok" ? target.workspaces : []), ...(list.kind === "ok" ? list.workspaces : [])]
+        .filter((w, i, all) => all.findIndex((x) => x.workspaceId === w.workspaceId) === i);
+      if (workspaces.length) {
+        dispatch({ type: "LOAD_NOVA_WORKSPACES", viewer: { role: verified.role, name: verified.displayName }, workspaces });
+      }
+      const open = (id: string, tab: "terms" | "milestones") => {
+        dispatch({ type: "SELECT_CHAT", chatId: wsChatId(novaWsId(id)) });
+        dispatch({ type: "SET_PANEL", tab, open: tab === "terms" });
+      };
+      if (workspaceId) {
+        if (target?.kind === "ok" && target.workspaces[0]) {
+          open(target.workspaces[0].workspaceId, "terms");
+        } else if (target?.kind === "not_found") {
+          show("Không tìm thấy workspace hoặc bạn không có quyền truy cập.");
+        } else {
+          show("Chưa tải được workspace từ Nova. Hãy tải lại trang.");
+        }
+      } else if (pending?.fallback && workspaces[0]) {
+        // Đăng nhập không kèm workspace: mở thỏa thuận được chấp nhận gần nhất thay vì kênh mặc định.
+        open(workspaces[0].workspaceId, "milestones");
+      }
+    });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [workspaceId]);
 
   useEffect(() => {
     if (!notice) return;

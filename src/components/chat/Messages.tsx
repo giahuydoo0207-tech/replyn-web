@@ -1,15 +1,14 @@
 "use client";
 
-import { ArrowRight, CheckCheck, Lock, ShieldCheck } from "lucide-react";
+import { CheckCheck, Lock, ShieldCheck } from "lucide-react";
 import { Fragment } from "react";
-import { FEE_LABEL, usdc } from "@/lib/fees";
 import { dayKey, dayLabel, hhmm } from "@/lib/format";
 import { noticeText, previewOf } from "@/lib/preview";
 import { findAttachment, initials, NOVA_TEAM_ID, SYSTEM_ID, type PanelTab } from "@/lib/reducer";
 import { jumpToMessage, useMe, useStore } from "@/lib/store";
 import type { Conversation, Message } from "@/lib/types";
 import { FilePreview } from "../FileCard";
-import { Avatar, Button, cx, ReplynMark } from "../ui";
+import { Avatar, cx } from "../ui";
 
 const GROUP_GAP = 5 * 60 * 1000;
 const NOTICE_KINDS = ["system", "milestone", "payment", "dispute", "decision"];
@@ -72,16 +71,6 @@ function MessageRow({
   const out = m.senderId === meId;
   const sender = state.users[m.senderId];
   const showName = !out && showAvatars && first;
-
-  if (m.kind === "proposal") {
-    return (
-      <div id={`msg-${m.id}`} className={cx("msg-in my-1.5 flex", out ? "justify-end" : "justify-start")}>
-        <div className={cx("w-[min(420px,88%)] rounded-xl", flash && "flash")}>
-          <ProposalCard m={m} />
-        </div>
-      </div>
-    );
-  }
 
   const bubble = (
     <div
@@ -205,73 +194,6 @@ function Notice({ m, flash, anchor = true }: { m: Message; flash: boolean; ancho
         )}
         <span className="ml-1.5 whitespace-nowrap text-[11px] text-muted">{hhmm(m.at)}</span>
       </p>
-    </div>
-  );
-}
-/* ---------- Proposal (Nova Chat) ---------- */
-
-function ProposalCard({ m }: { m: Message }) {
-  const { state, dispatch } = useStore();
-  const conv = state.conversations[m.chatId];
-  const p = conv.proposal!;
-  const total = p.milestones.reduce((a, x) => a + x.amount, 0);
-  const status = conv.proposalStatus ?? "pending";
-  const statusLabel = { pending: "Đang chờ phản hồi", opened: "Đã được mở", later: "Đã để sau" }[status];
-  const dot = { pending: "bg-amber", opened: "bg-success", later: "bg-muted" }[status];
-  return (
-    <div className="overflow-hidden rounded-xl bg-panel ring-1 ring-line">
-      <div className="flex items-center gap-3 px-4 pt-3.5">
-        <ReplynMark size={30} />
-        <div className="min-w-0">
-          <p className="text-[15px] font-semibold">Đề xuất chuyển sang Replyn</p>
-          <p className="text-xs text-muted">
-            {state.users[m.senderId].name} · {hhmm(m.at)}
-          </p>
-        </div>
-      </div>
-      <div className="space-y-3 px-4 py-3">
-        <p className="text-[14px] leading-relaxed text-ink-2">
-          Chuyển cuộc trao đổi này sang workspace Replyn để khóa điều khoản, tạo milestone, nộp sản phẩm, nghiệm thu và theo
-          dõi bằng chứng dự án.
-        </p>
-        <dl className="divide-y divide-white/5 rounded-lg bg-black/20 text-[13px]">
-          <Row k="Dự án" v={p.projectTitle} />
-          <Row k="Tổng giá trị" v={usdc(total)} />
-          <Row k="Giai đoạn" v={`${p.milestones.length} giai đoạn`} />
-          <Row k="Gói phí" v={FEE_LABEL[p.feeTier]} />
-        </dl>
-        <p className="border-l-2 border-white/15 pl-2.5 text-[13px] italic text-ink-2">
-          Nova giúp hai bên gặp nhau. Replyn giúp hai bên tin nhau để làm việc.
-        </p>
-        <div className="flex items-center justify-between text-xs text-ink-2">
-          <span className="rounded bg-white/6 px-1.5 py-0.5">Demo: escrow mô phỏng</span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className={cx("size-1.5 rounded-full", dot)} />
-            {statusLabel}
-          </span>
-        </div>
-        {status !== "opened" && (
-          <div className="flex gap-2">
-            <Button variant="primary" className="flex-1" onClick={() => dispatch({ type: "OPEN_REPLYN", chatId: conv.id })}>
-              Mở Replyn <ArrowRight size={16} />
-            </Button>
-            {status === "pending" && (
-              <Button variant="secondary" onClick={() => dispatch({ type: "PROPOSAL_LATER", chatId: conv.id })}>
-                Để sau
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex justify-between gap-3 px-3 py-1.5">
-      <dt className="text-muted">{k}</dt>
-      <dd className="text-right font-medium text-ink">{v}</dd>
     </div>
   );
 }

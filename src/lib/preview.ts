@@ -36,8 +36,6 @@ export function previewOf(s: AppState, m: Message): string {
       return m.text ?? "";
     case "file":
       return `📎 ${findAttachment(s, m.refs?.attachmentId)?.name ?? "Tệp"}`;
-    case "proposal":
-      return "Đề xuất chuyển sang Replyn";
     case "submission":
       return `📎 ${findAttachment(s, m.refs?.attachmentId)?.name ?? "Tệp"}`;
     default:

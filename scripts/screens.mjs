@@ -64,21 +64,18 @@ try {
   await page.getByRole("button", { name: "Quay lại cuộc trò chuyện", exact: true }).first().click();
 
   const flow = await open({ width: 1600, height: 900 });
-  await flow.getByRole("button", { name: "Thêm", exact: true }).click();
-  await flow.getByRole("menuitem", { name: /Đề xuất Replyn/ }).click();
-  const pendingFolder = flow.getByRole("button", { name: "Xem đề xuất công việc", exact: true });
-  assert.ok(await pendingFolder.isVisible(), "Binder must appear as soon as the proposal is sent");
-  await pendingFolder.click();
+  // Đề xuất được tạo và phản hồi trên Nova; Replyn chỉ mở workspace của thỏa thuận đã chấp nhận.
+  assert.equal(await flow.getByText(/Đề xuất Replyn/).count(), 0, "Replyn never offers to propose Replyn");
+  assert.equal(await flow.getByRole("button", { name: "Thêm", exact: true }).count(), 0, "Nova history is read-only in Replyn");
+  await flow.getByRole("button", { name: "Mở workspace", exact: true }).first().click();
   await flow.waitForTimeout(850);
-  assert.ok(await flow.getByRole("button", { name: "Mở Replyn", exact: true }).isVisible(), "Pending binder returns to the proposal card");
-  await flow.getByRole("button", { name: "Mở Replyn", exact: true }).click();
   assert.equal(await flow.getByRole("button", { name: /Landing page Mộc Coffee/ }).count(), 0, "Linked workspace must not create a second chat-list item");
   await shot(flow, "merged-workspace-mode");
   await flow.getByRole("button", { name: "Về hội thoại", exact: true }).click();
   await flow.waitForTimeout(850);
   assert.ok(await flow.getByRole("region", { name: "Trò chuyện: Lê Minh Khoa" }).isVisible(), "Workspace returns to the same conversation");
   await shot(flow, "merged-chat-mode");
-  await flow.getByRole("button", { name: "Mở hồ sơ công việc", exact: true }).click();
+  await flow.getByRole("button", { name: "Mở workspace", exact: true }).first().click();
   await flow.waitForTimeout(850);
   const proposalMenu = await openOptions(flow);
   await proposalMenu.getByRole("menuitem", { name: /Xem thỏa thuận/ }).click();
@@ -107,7 +104,7 @@ try {
   await flow.getByRole("button", { name: "Quay lại cuộc trò chuyện", exact: true }).first().click();
   await flow.getByRole("button", { name: "Về hội thoại", exact: true }).click();
   await flow.waitForTimeout(850);
-  const completedFolder = flow.getByRole("button", { name: "Mở hồ sơ công việc", exact: true });
+  const completedFolder = flow.getByRole("button", { name: "Mở workspace", exact: true }).first();
   assert.ok(await completedFolder.isVisible(), "Binder remains available after the project is completed");
   await completedFolder.click();
   await flow.waitForTimeout(850);
