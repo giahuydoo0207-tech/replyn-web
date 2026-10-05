@@ -41,6 +41,7 @@ export interface NovaWorkspace {
 /** Ghế của danh tính Nova thật đang đăng nhập (thay cho ghế dữ liệu mẫu). */
 export const NOVA_ME = "nova-me";
 export const novaWsId = (workspaceId: string) => `nova-${workspaceId}`;
+export const novaSourceChatId = (workspaceId: string) => `nova-source-${workspaceId}`;
 
 export type PanelTab = "terms" | "milestones" | "files" | "evidence" | "dispute";
 export type ListFilter = "all" | "unread" | "replyn" | "tasks" | "files" | "review" | "dispute";
@@ -451,6 +452,34 @@ export function reducer(state: AppState, action: Action): AppState {
         const peerName = role === "business" ? w.freelancerName : w.businessName;
         s = { ...s, users: { ...s.users, [peerId]: { id: peerId, name: peerName, short: shortName(peerName), title: peerTitle, color: "#5FD4E0" } } };
         const acceptedAt = Date.parse(w.acceptedAt);
+        const sourceChatId = novaSourceChatId(w.workspaceId);
+        const memberIds = role === "business" ? [NOVA_ME, peerId] : [peerId, NOVA_ME];
+        s = {
+          ...s,
+          conversations: {
+            ...s.conversations,
+            [sourceChatId]: {
+              id: sourceChatId,
+              kind: "nova",
+              title: peerName,
+              subtitle: `Nova Chat · ${w.projectName}`,
+              avatar: { initials: initials(peerName), bg: "#123b40", fg: "#5FD4E0" },
+              memberIds,
+              unread: 0,
+            },
+          },
+          messages: {
+            ...s.messages,
+            [sourceChatId]: [{
+              id: `nova-history-${w.workspaceId}`,
+              chatId: sourceChatId,
+              senderId: SYSTEM_ID,
+              at: Number.isFinite(acceptedAt) ? acceptedAt : s.clock,
+              kind: "system",
+              text: "Lịch sử trò chuyện đầy đủ vẫn nằm trên Nova. Replyn chỉ hiển thị thỏa thuận đã được chấp nhận và workspace dự án.",
+            }],
+          },
+        };
         s = reducer(
           { ...s, clock: Number.isFinite(acceptedAt) ? acceptedAt : s.clock },
           {
@@ -462,6 +491,7 @@ export function reducer(state: AppState, action: Action): AppState {
             feeTier: "BASIC",
             reviewDays: w.reviewPeriodDays ?? undefined,
             revisionLimit: w.revisionLimit ?? undefined,
+            fromNova: sourceChatId,
             draft: w.milestones.map((m, i) => ({
               id: `${wsId}-m${i + 1}`,
               title: m.title,
