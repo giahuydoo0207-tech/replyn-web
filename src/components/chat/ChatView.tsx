@@ -14,7 +14,6 @@ import {
   Plus,
   Search,
   SendHorizontal,
-  ShieldCheck,
   Smile,
   Upload,
   X,
@@ -39,7 +38,7 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
   const [dragging, setDragging] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [modeTransition, setModeTransition] = useState<"workspace" | "chat" | "proposal" | null>(null);
+  const [modeTransition, setModeTransition] = useState<"workspace" | "chat" | null>(null);
   const modeTimers = useRef<number[]>([]);
 
   useEffect(() => () => modeTimers.current.forEach(window.clearTimeout), []);
@@ -70,10 +69,8 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
     ? state.conversations[conv.linkedWorkspaceChatId]
     : undefined;
   const pairedChat = sourceChat ?? workspaceChat;
-  const proposalMessageId = !ws && conv.proposalStatus && conv.proposalMessageId
-    ? conv.proposalMessageId
-    : undefined;
-  const folderAction = ws ? "chat" : pairedChat ? "workspace" : proposalMessageId ? "proposal" : null;
+  // Workspace có lịch sử Nova: chuyển qua lại; workspace mở từ Nova thật thì không có lịch sử chat để quay về.
+  const folderAction = pairedChat ? (ws ? "chat" : "workspace") : null;
 
   const openProjectFolder = () => {
     if (!folderAction || modeTransition) return;
@@ -81,12 +78,6 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
     setSearchQuery("");
     setModeTransition(folderAction);
     modeTimers.current.push(window.setTimeout(() => {
-      if (folderAction === "proposal" && proposalMessageId) {
-        dispatch({ type: "FLASH", id: proposalMessageId });
-        document.getElementById(`msg-${proposalMessageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-        modeTimers.current.push(window.setTimeout(() => dispatch({ type: "FLASH", id: null }), 1700));
-        return;
-      }
       if (pairedChat) dispatch({ type: "SELECT_CHAT", chatId: pairedChat.id });
     }, 330));
     modeTimers.current.push(window.setTimeout(() => setModeTransition(null), 760));
@@ -117,7 +108,7 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
       />
       {searchOpen && <ChatSearch value={searchQuery} onChange={setSearchQuery} count={shownMessages.length} onClose={() => { setSearchOpen(false); setSearchQuery(""); }} />}
       {ws && <ProjectTaskBar ws={ws} />}
-      {conv.id === "nova-khoa" && !conv.proposalStatus && <NudgeBar conv={conv} />}
+      {!ws && workspaceChat?.workspaceId && <AcceptedProposalBar title={state.workspaces[workspaceChat.workspaceId]?.title ?? workspaceChat.title} onOpen={openProjectFolder} />}
 
       <div
         className="chat-canvas relative min-h-0 flex-1"
@@ -140,7 +131,7 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
           {conv.kind === "nova" && (
             <p className="mx-auto mt-4 flex w-fit max-w-[90%] items-start gap-1.5 rounded-lg bg-notice/95 px-3 py-1.5 text-center text-xs text-ink-2">
               <Lock size={12} className="mt-0.5 shrink-0" />
-              Nova Chat dùng để phỏng vấn và chọn nhau. Khi bắt đầu có tiền, deadline và bàn giao, hãy chuyển sang Replyn.
+              Lịch sử trao đổi trên Nova, chỉ để xem. Đề xuất được doanh nghiệp gửi và freelancer phản hồi trên Nova.
             </p>
           )}
           <MessageList conv={conv} messages={shownMessages} />
@@ -171,7 +162,7 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
 
 /* ---------- Header ---------- */
 
-function ChatHeader({ conv, ws, onBack, onSearch, folderAction, onModeSwitch }: { conv: Conversation; ws?: Workspace; onBack?: () => void; onSearch: () => void; folderAction: "workspace" | "chat" | "proposal" | null; onModeSwitch?: () => void }) {
+function ChatHeader({ conv, ws, onBack, onSearch, folderAction, onModeSwitch }: { conv: Conversation; ws?: Workspace; onBack?: () => void; onSearch: () => void; folderAction: "workspace" | "chat" | null; onModeSwitch?: () => void }) {
   const { state } = useStore();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -212,7 +203,7 @@ function ChatHeader({ conv, ws, onBack, onSearch, folderAction, onModeSwitch }: 
         </IconButton>
         {onModeSwitch && (
           <IconButton
-            label={folderAction === "chat" ? "Về hội thoại" : folderAction === "proposal" ? "Xem đề xuất công việc" : "Mở hồ sơ công việc"}
+            label={folderAction === "chat" ? "Về hội thoại" : "Mở workspace"}
             aria-pressed={!!ws}
             onClick={onModeSwitch}
           >
@@ -222,13 +213,13 @@ function ChatHeader({ conv, ws, onBack, onSearch, folderAction, onModeSwitch }: 
         <IconButton label="Tùy chọn" active={menu} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
           <MoreVertical size={20} />
         </IconButton>
-        {menu && <ConversationMenu conv={conv} ws={ws} onSearch={onSearch} onClose={() => setMenu(false)} />}
+        {menu && <ConversationMenu conv={conv} ws={ws} onSearch={onSearch} onOpenWorkspace={!ws && folderAction === "workspace" ? onModeSwitch : undefined} onClose={() => setMenu(false)} />}
       </div>
     </header>
   );
 }
 
-function WorkspaceModeTransition({ target }: { target: "workspace" | "chat" | "proposal" }) {
+function WorkspaceModeTransition({ target }: { target: "workspace" | "chat" }) {
   return (
     <div className="workspace-switch" aria-hidden>
       <div className="workspace-switch__binder">
@@ -242,7 +233,7 @@ function WorkspaceModeTransition({ target }: { target: "workspace" | "chat" | "p
         </div>
         <div className="workspace-switch__binder-cover">
           <LibraryBig size={30} />
-          <span>{target === "workspace" ? "Mở hồ sơ công việc" : target === "proposal" ? "Xem đề xuất công việc" : "Trở lại hội thoại"}</span>
+          <span>{target === "workspace" ? "Mở workspace" : "Trở lại hội thoại"}</span>
         </div>
       </div>
     </div>
@@ -268,14 +259,14 @@ function ProjectTaskBar({ ws }: { ws: Workspace }) {
   return <button type="button" onClick={() => dispatch({ type: "SET_PANEL", tab: next.tab!, open: true })} className="flex w-full shrink-0 items-center gap-2.5 border-b border-line bg-sidebar px-4 py-2 text-left text-[13px] hover:bg-white/[0.03]"><span className={cx("size-2 shrink-0 rounded-full", next.urgent === "danger" ? "bg-danger" : "bg-amber")} /><span className="min-w-0 flex-1 truncate"><span className="text-muted">Việc cần làm: </span><span className="font-medium text-ink">{next.text}</span></span><span className="text-xs font-medium text-link">Mở</span><ChevronRight size={15} className="text-muted" /></button>;
 }
 
-function ConversationMenu({ conv, ws, onSearch, onClose }: { conv: Conversation; ws?: Workspace; onSearch: () => void; onClose: () => void }) {
+function ConversationMenu({ conv, ws, onSearch, onOpenWorkspace, onClose }: { conv: Conversation; ws?: Workspace; onSearch: () => void; onOpenWorkspace?: () => void; onClose: () => void }) {
   const { dispatch } = useStore();
   const openTool = (tab: (typeof PROJECT_TOOLS)[number]["tab"]) => { dispatch({ type: "SET_PANEL", tab, open: true }); onClose(); };
   const run = (fn: () => void) => { fn(); onClose(); };
   return (
     <div role="menu" aria-label="Tùy chọn cuộc trò chuyện" className="msg-in absolute right-0 top-11 z-40 w-[300px] overflow-hidden rounded-xl bg-panel py-1.5 shadow-2xl ring-1 ring-line">
       {ws && <><p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase text-muted">Công cụ dự án</p>{PROJECT_TOOLS.map((item) => <button key={item.tab} role="menuitem" onClick={() => openTool(item.tab)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-hover"><item.icon size={18} className="text-ink-2" /><span className="min-w-0"><span className="block text-sm font-medium">{item.menuLabel}</span><span className="block truncate text-xs text-muted">{item.hint}</span></span></button>)}</>}
-      {!ws && conv.proposal && !conv.proposalStatus && <button role="menuitem" onClick={() => run(() => dispatch({ type: "PROPOSE_REPLYN", chatId: conv.id }))} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-hover"><ShieldCheck size={18} className="text-yellow" /><span><span className="block text-sm font-medium">Đề xuất Replyn</span><span className="block text-xs text-muted">Chuyển từ trao đổi sang làm việc</span></span></button>}
+      {onOpenWorkspace && <button role="menuitem" onClick={() => run(onOpenWorkspace)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-hover"><LibraryBig size={18} className="text-yellow" /><span><span className="block text-sm font-medium">Mở workspace</span><span className="block text-xs text-muted">Thỏa thuận đã được chấp nhận trên Nova</span></span></button>}
       <div className={cx(ws && "mt-1 border-t border-line pt-1")}>
         <button role="menuitem" onClick={() => run(onSearch)} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-hover"><Search size={18} className="text-ink-2" />Tìm trong cuộc trò chuyện</button>
         <button role="menuitem" onClick={() => run(() => dispatch({ type: "TOGGLE_PIN", chatId: conv.id }))} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-hover"><Pin size={18} className="text-ink-2" />{conv.pinned ? "Bỏ ghim cuộc trò chuyện" : "Ghim cuộc trò chuyện"}</button>
@@ -285,25 +276,18 @@ function ConversationMenu({ conv, ws, onSearch, onClose }: { conv: Conversation;
   );
 }
 
-function NudgeBar({ conv }: { conv: Conversation }) {
-  const { dispatch } = useStore();
-  const [hidden, setHidden] = useState(false);
-  if (hidden) return null;
+/** Lịch sử Nova đã dẫn tới một thỏa thuận được chấp nhận: chỉ còn việc mở workspace để thực hiện. */
+function AcceptedProposalBar({ title, onOpen }: { title: string; onOpen: () => void }) {
   return (
     <div className="flex shrink-0 items-center gap-3 border-b border-white/5 bg-sidebar px-4 py-2">
       <ReplynMark size={26} />
-      <p className="min-w-0 flex-1 text-[13px] text-ink-2">
-        <span className="hidden sm:inline">
-          Dự án này có giá trị, deadline và bàn giao. Bạn có muốn bảo vệ hai bên bằng Replyn không?
-        </span>
-        <span className="sm:hidden">Bảo vệ hai bên bằng Replyn?</span>
+      <p className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
+        <span className="hidden sm:inline">Đề xuất đã được chấp nhận trên Nova · </span>
+        <span className="font-medium text-ink">{title}</span>
       </p>
-      <Button variant="primary" className="!px-3 !py-1.5" onClick={() => dispatch({ type: "PROPOSE_REPLYN", chatId: conv.id })}>
-        Đề xuất Replyn
+      <Button variant="primary" className="!px-3 !py-1.5" onClick={onOpen}>
+        Mở workspace
       </Button>
-      <IconButton label="Ẩn gợi ý" onClick={() => setHidden(true)} className="size-8">
-        <X size={16} />
-      </IconButton>
     </div>
   );
 }
@@ -351,6 +335,14 @@ function Composer({
       </div>
     );
   }
+  // Trò chuyện, đề xuất và phản hồi diễn ra trên Nova; Replyn chỉ hiển thị lại lịch sử đó.
+  if (conv.kind === "nova") {
+    return (
+      <div className="shrink-0 border-t border-white/5 bg-sidebar px-4 py-4 text-center text-sm text-muted">
+        Lịch sử Nova chỉ để xem. Tiếp tục trò chuyện trên Nova.
+      </div>
+    );
+  }
 
   const send = () => {
     const t = text.trim();
@@ -359,31 +351,18 @@ function Composer({
     setText("");
   };
 
-  const proposalUsed = !!conv.proposalStatus && conv.proposalStatus !== "later";
-  type ItemId = "file" | "image" | "propose" | "submit";
+  type ItemId = "file" | "image" | "submit";
   type Item = { id: ItemId; label: string; hint?: string; icon: ReactNode; disabled?: boolean; accent?: boolean };
   const items: Item[] = [
     { id: "file", label: "Gửi tệp", icon: <Paperclip size={18} /> },
     { id: "image", label: "Gửi ảnh", icon: <ImageIcon size={18} /> },
   ];
-  // Nova Chat chỉ có 3 mục: thỏa thuận & milestone chỉ được tạo trong workspace Replyn
-  if (conv.kind === "nova" && conv.proposal) {
-    items.push({
-      id: "propose",
-      label: "Đề xuất Replyn",
-      hint: proposalUsed ? "Đã gửi đề xuất" : "Khóa điều khoản, milestone, bằng chứng",
-      icon: <ShieldCheck size={18} />,
-      disabled: proposalUsed,
-      accent: true,
-    });
-  }
   if (ws && canSubmit) {
     items.push({ id: "submit", label: "Nộp sản phẩm", hint: "Gắn vào milestone đang chạy", icon: <Upload size={18} />, accent: true });
   }
   const runItem = (id: ItemId) => {
     if (id === "file") fileInput.current?.click();
     else if (id === "image") imageInput.current?.click();
-    else if (id === "propose") dispatch({ type: "PROPOSE_REPLYN", chatId: conv.id });
     else onSubmitWork();
   };
 
@@ -475,7 +454,7 @@ function EmptyState() {
       <h2 className="mt-5 text-2xl font-bold">Replyn</h2>
       <p className="mt-2 max-w-md text-[15px] text-ink-2">Chat, thỏa thuận dự án và bằng chứng ở cùng một nơi.</p>
       <p className="mt-6 max-w-sm text-sm text-muted">
-        Chọn một cuộc trò chuyện, hoặc mở “Đề xuất Replyn” trong Nova Chat để tạo workspace có milestone và bằng chứng dự án.
+        Chọn một workspace để theo dõi tiến độ. Workspace mới xuất hiện khi freelancer chấp nhận đề xuất mà doanh nghiệp gửi trên Nova.
       </p>
     </section>
   );

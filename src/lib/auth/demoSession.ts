@@ -11,6 +11,8 @@ export interface PendingLogin {
   /** null: mở danh sách chat */
   conversationId: string | null;
   notice: string | null;
+  /** Cuộc trò chuyện chỉ là mặc định; workspace thật từ Nova (nếu có) được ưu tiên mở. */
+  fallback: boolean;
 }
 
 function get(key: string): string | null {
@@ -31,11 +33,12 @@ function set(key: string, value: string | null) {
 }
 
 /** Gọi khi server đã đặt cookie phiên, ngay trước khi chuyển sang màn chat. */
-export function queuePendingLogin(conversationId: string | null, notice?: string) {
+export function queuePendingLogin(conversationId: string | null, notice?: string, fallback = false) {
   set(LEGACY_ROLE_KEY, null);
   const pending: PendingLogin = {
     conversationId,
     notice: notice ?? (conversationId ? "Đã liên kết cuộc trò chuyện từ Nova." : null),
+    fallback,
   };
   set(PENDING_KEY, JSON.stringify(pending));
 }
@@ -56,6 +59,7 @@ export function consumePendingLogin(): PendingLogin | null {
     return {
       conversationId: typeof p.conversationId === "string" ? p.conversationId : null,
       notice: typeof p.notice === "string" ? p.notice : null,
+      fallback: p.fallback === true,
     };
   } catch {
     return null;

@@ -9,9 +9,10 @@ import { RightPanel } from "./panel/RightPanel";
 import { Rail } from "./Rail";
 import { cx } from "./ui";
 
-export function ReplynApp() {
+/** `workspaceId`: mở thẳng workspace Nova đã được chấp nhận (route /workspace/{id}). */
+export function ReplynApp({ workspaceId }: { workspaceId?: string } = {}) {
   return (
-    <StoreProvider>
+    <StoreProvider workspaceId={workspaceId}>
       <ActionsProvider>
         <Shell />
       </ActionsProvider>

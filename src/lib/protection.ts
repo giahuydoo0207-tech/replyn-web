@@ -48,7 +48,7 @@ export function nextAction(ws: Workspace, meId: string): { text: string; tab: Pa
   const idx = (id: string) => ws.milestones.findIndex((m) => m.id === id) + 1;
   const d = openDisputes(ws)[0];
   if (d) return { text: `Xem hỗ trợ giai đoạn ${idx(d.milestoneId)}`, tab: "dispute", urgent: "danger" };
-  if (!ws.termsLockedAt) return { text: "Khóa điều khoản để bắt đầu", tab: "terms", urgent: "amber" };
+  if (!ws.termsLockedAt) return { text: "Xác nhận thỏa thuận để bắt đầu", tab: "terms", urgent: "amber" };
   const mine = milestonesNeedingMe(ws, meId)[0];
   if (mine) return { text: `${ACTION_VERB[mine.status]} giai đoạn ${idx(mine.id)}`, tab: "milestones", urgent: "amber" };
   if (ws.milestones.every(isClosed)) return { text: "Dự án đã hoàn tất", tab: null, urgent: null };

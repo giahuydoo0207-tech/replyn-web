@@ -13,7 +13,8 @@ Cấp vốn, giải ngân và phí vận hành đều là mô phỏng. Replyn kh
 - Nova Business hiện là demo dưới một organization mẫu, **chưa có phiên đăng nhập người dùng doanh nghiệp**.
 - Màn “Tiếp tục với Nova” của Replyn (`/auth/nova`) xác thực thật qua server Replyn: **Nova ID + Nova Key** (Business)
   và **mã QR xác nhận bằng Nova Mobile** (Talent), cấp phiên Replyn trong cookie HttpOnly.
-- Tin nhắn Nova CHAT trong bản nộp là **dữ liệu seed**; đăng nhập thật chưa đồng bộ tin nhắn thật.
+- Tin nhắn Nova CHAT trong bản nộp là **dữ liệu seed** (chỉ xem); đăng nhập thật chưa đồng bộ tin nhắn thật.
+- Workspace của đề xuất đã chấp nhận trên Nova được đọc thật từ Nova backend (xem *Workspace thật từ Nova*).
 - Tích hợp Supabase và signed handoff là **kiến trúc tiếp theo**, chưa triển khai.
 - Ký quỹ, phí và giải ngân đều là **mô phỏng**; Replyn không giữ tiền thật.
 
@@ -76,12 +77,27 @@ QR bằng `jsqr` (devDependency) để chắc mã vẫn quét được khi có l
 
 Nút **Demo** ở rail trái cho phép nhảy thẳng tới từng cảnh và đổi vai **Business / Freelancer**:
 
-1. **Nova Chat**: phỏng vấn xong, menu `+` chỉ có *Gửi tệp · Gửi ảnh · Đề xuất Replyn*.
-2. **Đề xuất Replyn**: proposal card, CTA *Mở Replyn / Để sau*.
-3. **Workspace & milestone**: khóa điều khoản ở tab Điều khoản, M1 *Đã ký quỹ (mô phỏng)*.
-4. **Nộp sản phẩm**: chat chỉ có bubble file gọn + notice; SHA-256 nằm trong tab Files.
-5. **Tranh chấp**: yêu cầu sửa, nộp lại v2, mở tranh chấp, *Đội ngũ Nova* review.
-6. **Quyết định & bằng chứng**: chia 600/400, phí mô phỏng, timeline *Bằng chứng dự án*.
+Đề xuất Replyn **không** được tạo trong Replyn: doanh nghiệp gửi đề xuất từ cuộc trò chuyện trên Nova Business,
+freelancer chấp nhận hoặc từ chối trên Nova Mobile. Replyn chỉ mở workspace của thỏa thuận đã được chấp nhận; lịch sử
+Nova Chat trong dữ liệu mẫu chỉ để xem.
+
+1. **Thỏa thuận từ Nova**: workspace mở từ đề xuất đã chấp nhận, hai bên xem và *Xác nhận thỏa thuận*.
+2. **Workspace & milestone**: thỏa thuận đã xác nhận, M1 *Đã ký quỹ (mô phỏng)*.
+3. **Nộp sản phẩm**: chat chỉ có bubble file gọn + notice; SHA-256 nằm trong tab Files.
+4. **Tranh chấp**: yêu cầu sửa, nộp lại v2, mở tranh chấp, *Đội ngũ Nova* review.
+5. **Quyết định & bằng chứng**: chia 600/400, phí mô phỏng, timeline *Bằng chứng dự án*.
+
+## Workspace thật từ Nova
+
+- `/workspace/{workspaceId}`: id mờ do Nova cấp khi freelancer chấp nhận đề xuất. Chưa đăng nhập thì chuyển sang
+  `/auth/nova?returnTo=/workspace/{id}` (Business dùng Nova ID, Talent quét QR) rồi quay lại đúng workspace.
+- `GET /api/workspaces` và `GET /api/workspaces/{id}`: server Replyn đọc danh tính từ cookie phiên và hỏi Nova
+  (`POST /api/v1/integrations/replyn/workspaces/lookup`, cùng `REPLYN_QR_CLIENT_SECRET`). Workspace không tồn tại và
+  workspace của người khác đều trả 404; trình duyệt không nhận mã hồ sơ nội bộ.
+- Danh tính thật ngồi ghế riêng (`nova-me`), không dùng ghế mẫu `u-ha` / `u-khoa`. Talent đăng nhập bằng QR mà không có
+  `returnTo` sẽ được mở workspace được chấp nhận gần nhất, nếu có.
+- Giới hạn: thỏa thuận, milestone và hai bên đến từ Nova; các thao tác trong workspace (xác nhận thỏa thuận, nộp sản
+  phẩm, nghiệm thu, nhật ký) vẫn là mô phỏng trong từng trình duyệt, chưa đồng bộ giữa hai bên.
 
 Mọi bước cũng làm được bằng thao tác thật: kéo thả file vào khung chat để nộp sản phẩm (hash tính ngay trên
 trình duyệt), hoặc dùng các nút trong panel Replyn Protection.

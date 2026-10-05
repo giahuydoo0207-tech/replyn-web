@@ -1,6 +1,6 @@
 import { mockHash, vnTime } from "./format";
 import { reducer, wsChatId, type Action, type AppState } from "./reducer";
-import type { Conversation, Message, User } from "./types";
+import type { Conversation, Message, ProposalDraft, User } from "./types";
 
 /** Giờ demo: sáng chung kết UniHackFest */
 export const DEMO_NOW = vnTime(2026, 10, 10, 9, 0);
@@ -30,38 +30,6 @@ const conversations: Record<string, Conversation> = {
     memberIds: ["u-ha", "u-khoa"],
     unread: 0,
     pinned: true,
-    proposal: {
-      projectTitle: "Landing page Mộc Coffee",
-      feeTier: "BASIC",
-      milestones: [
-        {
-          id: "ms-1",
-          title: "Thiết kế UI landing page",
-          amount: 1000,
-          deadline: "15/10/2026",
-          scope: "Thiết kế giao diện landing page ra mắt menu mùa thu: hero, menu, câu chuyện thương hiệu, đặt bàn, bản đồ 3 chi nhánh, footer.",
-          deliverables: ["File Figma desktop + mobile", "UI kit (màu, font, component)", "Prototype click được"],
-          criteria: [
-            "Figma desktop + mobile, đủ 6 section",
-            "Đúng brand guideline Mộc Coffee",
-            "Tối đa 2 lượt sửa",
-          ],
-        },
-        {
-          id: "ms-2",
-          title: "Code & bàn giao landing page",
-          amount: 1500,
-          deadline: "25/10/2026",
-          scope: "Dựng landing page từ bản thiết kế đã nghiệm thu, tích hợp form đặt bàn và bản đồ chi nhánh.",
-          deliverables: ["Source code Next.js", "Bản deploy staging", "Tài liệu hướng dẫn deploy"],
-          criteria: [
-            "Next.js, responsive mobile",
-            "Lighthouse Performance ≥ 90",
-            "Bàn giao source + hướng dẫn deploy",
-          ],
-        },
-      ],
-    },
   },
   "nova-quan": {
     id: "nova-quan",
@@ -156,8 +124,42 @@ function buildMessages(): Record<string, Message[]> {
 
 const mockFile = (name: string, size: number) => ({ name, size, hash: mockHash(name + size) });
 
-/** Workspace phụ cho chat list — dựng bằng chính reducer để dữ liệu luôn nhất quán */
+/** Giai đoạn của đề xuất mẫu mà Mộc Coffee đã gửi và Minh Khoa đã chấp nhận trên Nova. */
+const MOC_MILESTONES: ProposalDraft["milestones"] = [
+  {
+    id: "ms-1",
+    title: "Thiết kế UI landing page",
+    amount: 1000,
+    deadline: "15/10/2026",
+    scope: "Thiết kế giao diện landing page ra mắt menu mùa thu: hero, menu, câu chuyện thương hiệu, đặt bàn, bản đồ 3 chi nhánh, footer.",
+    deliverables: ["File Figma desktop + mobile", "UI kit (màu, font, component)", "Prototype click được"],
+    criteria: ["Figma desktop + mobile, đủ 6 section", "Đúng brand guideline Mộc Coffee", "Tối đa 2 lượt sửa"],
+  },
+  {
+    id: "ms-2",
+    title: "Code & bàn giao landing page",
+    amount: 1500,
+    deadline: "25/10/2026",
+    scope: "Dựng landing page từ bản thiết kế đã nghiệm thu, tích hợp form đặt bàn và bản đồ chi nhánh.",
+    deliverables: ["Source code Next.js", "Bản deploy staging", "Tài liệu hướng dẫn deploy"],
+    criteria: ["Next.js, responsive mobile", "Lighthouse Performance ≥ 90", "Bàn giao source + hướng dẫn deploy"],
+  },
+];
+
+/** Workspace mẫu cho chat list — dựng bằng chính reducer để dữ liệu luôn nhất quán */
 const fillerActions: Action[] = [
+  // Đề xuất được tạo và chấp nhận trên Nova; Replyn chỉ mở workspace thực thi thỏa thuận đó.
+  { type: "SET_CLOCK", at: d(9, 9, 40) },
+  {
+    type: "CREATE_WORKSPACE",
+    wsId: "ws-moc",
+    title: "Landing page Mộc Coffee",
+    businessId: "u-ha",
+    freelancerId: "u-khoa",
+    feeTier: "BASIC",
+    fromNova: "nova-khoa",
+    draft: MOC_MILESTONES,
+  },
   { type: "SET_CLOCK", at: d(1, 10, 0) },
   {
     type: "CREATE_WORKSPACE",
@@ -259,28 +261,25 @@ export interface Scene {
   hint: string;
 }
 
+/** Đề xuất được gửi và chấp nhận trên Nova, nên mọi cảnh đều bắt đầu từ một workspace đã có. */
 export const SCENES: Scene[] = [
-  { id: 1, title: "Nova Chat", hint: "Phỏng vấn xong, mở menu “+” → Đề xuất Replyn" },
-  { id: 2, title: "Đề xuất Replyn", hint: "Proposal card trong chat, CTA “Mở Replyn”" },
-  { id: 3, title: "Dự án và giai đoạn", hint: "Thỏa thuận đã xác nhận, giai đoạn 1 đã ký quỹ (mô phỏng)" },
-  { id: 4, title: "Nộp sản phẩm", hint: "Nộp tệp và đối chiếu phiên bản trong mục Sản phẩm" },
-  { id: 5, title: "Yêu cầu hỗ trợ", hint: "Yêu cầu sửa, nộp lại và nhờ Đội ngũ Nova hỗ trợ" },
-  { id: 6, title: "Phương án và nhật ký", hint: "Chia tiền 600/400 và xem Nhật ký dự án" },
+  { id: 1, title: "Thỏa thuận từ Nova", hint: "Đề xuất đã được chấp nhận trên Nova; hai bên xem và xác nhận thỏa thuận" },
+  { id: 2, title: "Dự án và giai đoạn", hint: "Thỏa thuận đã xác nhận, giai đoạn 1 đã ký quỹ (mô phỏng)" },
+  { id: 3, title: "Nộp sản phẩm", hint: "Nộp tệp và đối chiếu phiên bản trong mục Sản phẩm" },
+  { id: 4, title: "Yêu cầu hỗ trợ", hint: "Yêu cầu sửa, nộp lại và nhờ Đội ngũ Nova hỗ trợ" },
+  { id: 5, title: "Phương án và nhật ký", hint: "Chia tiền 600/400 và xem Nhật ký dự án" },
 ];
 
 export function buildScene(n: number): AppState {
   let s = initialState();
   const run = (a: Action) => (s = reducer(s, a));
-  const ws = () => Object.values(s.workspaces).find((w) => w.title === "Landing page Mộc Coffee")!;
-  if (n >= 2) run({ type: "PROPOSE_REPLYN", chatId: "nova-khoa", senderId: "u-ha" });
-  if (n >= 3) {
-    run({ type: "SEND_TEXT", chatId: "nova-khoa", senderId: "u-khoa", text: "Em đồng ý, mình chuyển sang Replyn ạ." });
-    run({ type: "OPEN_REPLYN", chatId: "nova-khoa" });
+  const ws = () => s.workspaces["ws-moc"];
+  if (n >= 2) {
     run({ type: "LOCK_TERMS", wsId: ws().id });
     run({ type: "FUND", wsId: ws().id, milestoneId: "ms-1" });
     run({ type: "SEND_TEXT", chatId: wsChatId(ws().id), senderId: "u-khoa", text: "Em nhận được thông báo ký quỹ (mô phỏng) rồi ạ. Em bắt đầu thiết kế luôn." });
   }
-  if (n >= 4) {
+  if (n >= 3) {
     run({ type: "SEND_TEXT", chatId: wsChatId(ws().id), senderId: "u-ha", text: "Nhớ bám brand guideline mới nhé, màu nâu đất là chủ đạo." });
     run({
       type: "SUBMIT",
@@ -290,7 +289,7 @@ export function buildScene(n: number): AppState {
       note: "Bản thiết kế v1: 6 section desktop + mobile.",
     });
   }
-  if (n >= 5) {
+  if (n >= 4) {
     run({ type: "REQUEST_REVISION", wsId: ws().id, milestoneId: "ms-1", note: "Thiếu bản mobile cho section Đặt bàn và Bản đồ chi nhánh." });
     run({ type: "SEND_TEXT", chatId: wsChatId(ws().id), senderId: "u-khoa", text: "Dạ em bổ sung trong hôm nay ạ." });
     run({
@@ -311,13 +310,14 @@ export function buildScene(n: number): AppState {
     run({ type: "SEND_TEXT", chatId: wsChatId(ws().id), senderId: "u-khoa", text: "Em đã làm đủ 6 section desktop + mobile theo tiêu chí. Font em dùng theo file guideline chị gửi ngày 9/10." });
     run({ type: "NOVA_REVIEW", wsId: ws().id, disputeId: ws().disputes[0].id });
   }
-  if (n >= 6) {
+  if (n >= 5) {
     run({ type: "RESOLVE", wsId: ws().id, disputeId: ws().disputes[0].id, freelancerGross: 600 });
     run({ type: "SET_PANEL", tab: "evidence", open: true });
   }
-  if (n >= 3) run({ type: "SELECT_CHAT", chatId: wsChatId(ws().id) });
-  if (n === 5) run({ type: "SET_PANEL", tab: "dispute", open: true });
-  if (n === 3) run({ type: "SET_PANEL", tab: "milestones", open: true });
-  if (n === 4) run({ type: "SET_PANEL", tab: "files", open: true });
+  run({ type: "SELECT_CHAT", chatId: wsChatId(ws().id) });
+  if (n === 4) run({ type: "SET_PANEL", tab: "dispute", open: true });
+  if (n === 2) run({ type: "SET_PANEL", tab: "milestones", open: true });
+  if (n === 3) run({ type: "SET_PANEL", tab: "files", open: true });
+  if (n === 1) run({ type: "SET_PANEL", tab: "terms", open: true });
   return s;
 }
