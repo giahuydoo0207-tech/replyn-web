@@ -2,11 +2,10 @@
 
 import { ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
-import { resolveHandoff, safeReturnTo, type NovaDemoAccount } from "@/lib/auth/mockNova";
-import { queuePendingLogin, startTabFromNovaLogin } from "@/lib/auth/demoSession";
-import type { BusinessIdentity } from "@/lib/auth/novaBusinessClient";
-import { initialState } from "@/lib/seed";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { resolveHandoff, safeReturnTo } from "@/lib/auth/mockNova";
+import { queuePendingLogin } from "@/lib/auth/demoSession";
+import type { BusinessIdentity, TalentIdentity } from "@/lib/auth/novaBusinessClient";
 import { ReplynMark } from "../ui";
 import { AuthMethodTabs, panelId, tabId, type AuthMethod } from "./AuthMethodTabs";
 import { HandoffSummary } from "./HandoffSummary";
@@ -15,10 +14,13 @@ import { NovaIdForm } from "./NovaIdForm";
 import { NovaQrLogin } from "./NovaQrLogin";
 
 /**
- * Chat vẫn chạy trên dữ liệu mẫu: doanh nghiệp đăng nhập bằng Nova ID ngồi vào ghế Business của dữ liệu mẫu.
- * Danh tính thật (tên, Nova ID) nằm trong cookie phiên do server ký.
+ * Chat vẫn chạy trên dữ liệu mẫu: doanh nghiệp đăng nhập bằng Nova ID ngồi vào ghế Business, Talent đăng nhập
+ * bằng mã QR ngồi vào ghế Freelancer của dữ liệu mẫu. Danh tính thật nằm trong cookie phiên do server ký.
  */
 const BUSINESS_SEAT = "u-ha";
+const TALENT_SEAT = "u-khoa";
+/** Không có handoff hay returnTo: Talent đăng nhập bằng QR được đưa tới kênh Nova (giống Demo 1). */
+const TALENT_HOME_CHAT = "channel-nova";
 
 /* Phương thức gần nhất (không chứa dữ liệu nhạy cảm). Chưa chọn: desktop → QR, mobile → Nova ID. */
 const METHOD_KEY = "replyn.auth.method";
@@ -41,8 +43,9 @@ function subscribeViewport(cb: () => void) {
 }
 
 /**
- * MOCK — đăng nhập Replyn bằng danh tính Nova. Mọi xác thực ở đây là mô phỏng phía client.
- * Backend thật phải xác minh signed handoff thay vì tin query `handoff` / `conversation` / `returnTo`.
+ * Đăng nhập Replyn bằng danh tính Nova: Nova ID (Business) hoặc mã QR xác nhận trên Nova Mobile (Talent).
+ * Xác thực chạy trên server Replyn; trang chỉ nhận danh tính đã làm sạch. Query `handoff` / `conversation`
+ * vẫn là metadata mô phỏng phía client (chưa có signed handoff), `returnTo` chỉ nhận đường dẫn nội bộ.
  */
 export function NovaAuthPage() {
   const params = useSearchParams();
@@ -65,31 +68,38 @@ export function NovaAuthPage() {
     }
   };
 
+  /**
+   * Server đã xác minh và đặt cookie phiên; vai trò được đọc lại từ cookie, không ghi vào sessionStorage.
+   * Handoff hợp lệ (tài khoản là thành viên) thắng, rồi tới returnTo nội bộ, cuối cùng là `fallbackChat`.
+   */
   const finish = useCallback(
-    (userId: string, name: string, applyLogin: (conversation: string | null) => void) => {
-      // chỉ mở cuộc trò chuyện nếu tài khoản vừa xác minh là thành viên của nó
-      const conversation = handoff && handoff.members.some((m) => m.id === userId) ? handoff.conversationId : null;
+    (seat: string, name: string, fallbackChat: string | null, notice?: string) => {
+      const handoffChat = handoff && handoff.members.some((m) => m.id === seat) ? handoff.conversationId : null;
+      const conversation = handoffChat ?? (returnTo ? null : fallbackChat);
       setSignedIn({ name, toConversation: !!conversation });
-      applyLogin(conversation);
+      queuePendingLogin(conversation, handoffChat ? undefined : notice);
       window.setTimeout(() => router.replace(conversation ? "/" : (returnTo ?? "/")), 900);
     },
     [handoff, returnTo, router],
   );
 
-  /** Nova ID: server đã xác minh và đặt cookie phiên; vai Business được đọc lại từ cookie, không ghi vào sessionStorage. */
   const onBusinessSuccess = useCallback(
-    (identity: BusinessIdentity) => finish(BUSINESS_SEAT, identity.displayName, queuePendingLogin),
+    (identity: BusinessIdentity) => finish(BUSINESS_SEAT, identity.displayName, null),
     [finish],
   );
 
-  /** Mã QR: vẫn là bản thử nghiệm phía trình duyệt (chưa có QR pairing backend). */
+  /** Mã QR: Nova Mobile đã xác nhận, server Replyn đã tiêu thụ challenge và đặt phiên Talent. */
   const onQrSuccess = useCallback(
-    (account: NovaDemoAccount) =>
-      finish(account.userId, initialState().users[account.userId]?.name ?? account.novaId, (conversation) =>
-        startTabFromNovaLogin(account.role, conversation),
-      ),
+    (identity: TalentIdentity) => finish(TALENT_SEAT, identity.displayName, TALENT_HOME_CHAT, "Đã đăng nhập bằng Nova Mobile."),
     [finish],
   );
+
+  // Mã QR mở nhầm bằng camera thường: xóa secret khỏi thanh địa chỉ và lịch sử, rồi hướng dẫn dùng Nova Mobile.
+  // Đọc một lần vì sau replaceState thì query không còn nữa.
+  const [scannedOutsideNova] = useState(() => params.has("pairing") || params.has("secret"));
+  useEffect(() => {
+    if (scannedOutsideNova) window.history.replaceState(null, "", "/auth/nova");
+  }, [scannedOutsideNova]);
 
   const panels: { m: AuthMethod; side: "left" | "right" }[] = [
     { m: "id", side: "left" },
@@ -119,6 +129,12 @@ export function NovaAuthPage() {
               Xác minh tài khoản Nova để mở cuộc trò chuyện và hồ sơ công việc của bạn trên Replyn.
             </p>
           </div>
+          {scannedOutsideNova && (
+            <p role="status" className="rounded-lg bg-(--na-subtle) px-3.5 py-3 text-[14px] text-(--na-ink-2)">
+              Mã QR đăng nhập chỉ dùng được trong ứng dụng Nova Mobile. Mở Nova trên điện thoại, nhấn biểu tượng quét
+              QR ở Trang chủ rồi quét mã trên màn hình máy tính.
+            </p>
+          )}
           {handoff && <HandoffSummary info={handoff} />}
           <AuthMethodTabs value={method} onChange={(m) => !signedIn && choose(m)} />
         </div>
@@ -163,7 +179,7 @@ export function NovaAuthPage() {
         </footer>
       </section>
       <p className="mt-4 text-center text-[12px] text-(--na-muted)">
-        Nova ID được xác minh với Nova Business. Mã QR đang ở chế độ thử nghiệm.
+        Nova ID được xác minh với Nova Business. Mã QR được xác nhận bằng Nova Mobile.
       </p>
     </div>
   );

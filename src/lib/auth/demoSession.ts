@@ -1,11 +1,10 @@
-import type { Role } from "../types";
-
 /**
- * MOCK — phiên đăng nhập Nova của từng tab, chỉ dùng sessionStorage (không chia sẻ giữa các tab).
- * Chỉ lưu: vai trò của tab, cuộc trò chuyện cần mở sau đăng nhập và một thông báo hiển thị một lần.
- * Không lưu dữ liệu ứng dụng; dữ liệu chat vẫn là reducer mock trong bộ nhớ.
+ * Việc cần làm ngay sau khi đăng nhập Nova của từng tab, chỉ dùng sessionStorage (không chia sẻ giữa các tab):
+ * cuộc trò chuyện cần mở và một thông báo hiển thị một lần. Danh tính và vai trò luôn đến từ cookie phiên do
+ * server ký, không bao giờ từ đây. Dữ liệu chat vẫn là reducer mock trong bộ nhớ.
  */
-const ROLE_KEY = "replyn.auth.role";
+/** Khóa vai trò của bản QR thử nghiệm cũ; chỉ còn để dọn dữ liệu tab cũ. */
+const LEGACY_ROLE_KEY = "replyn.auth.role";
 const PENDING_KEY = "replyn.auth.pending";
 
 export interface PendingLogin {
@@ -31,42 +30,20 @@ function set(key: string, value: string | null) {
   }
 }
 
-/** Gọi khi đăng nhập Nova (mock) thành công, ngay trước khi chuyển sang màn chat. */
-export function startTabFromNovaLogin(role: Role, conversationId: string | null) {
-  set(ROLE_KEY, role);
-  queuePending(conversationId);
-}
-
-/**
- * Đăng nhập Nova ID (thật): vai Business đến từ cookie phiên do server ký, nên tab chỉ giữ cuộc trò chuyện
- * cần mở và bỏ vai trò mock cũ (nếu có).
- */
-export function queuePendingLogin(conversationId: string | null) {
-  set(ROLE_KEY, null);
-  queuePending(conversationId);
-}
-
-/** Sau khi đăng xuất: bỏ vai trò và cuộc trò chuyện đang chờ của tab. */
-export function clearTabLogin() {
-  set(ROLE_KEY, null);
-  set(PENDING_KEY, null);
-}
-
-function queuePending(conversationId: string | null) {
+/** Gọi khi server đã đặt cookie phiên, ngay trước khi chuyển sang màn chat. */
+export function queuePendingLogin(conversationId: string | null, notice?: string) {
+  set(LEGACY_ROLE_KEY, null);
   const pending: PendingLogin = {
     conversationId,
-    notice: conversationId ? "Đã liên kết cuộc trò chuyện từ Nova." : null,
+    notice: notice ?? (conversationId ? "Đã liên kết cuộc trò chuyện từ Nova." : null),
   };
   set(PENDING_KEY, JSON.stringify(pending));
 }
 
-/**
- * Vai trò mock của tab (giữ qua refresh trong cùng tab). Chỉ dùng cho luồng QR thử nghiệm; vai Business
- * không bao giờ được cấp từ sessionStorage.
- */
-export function readTabRole(): Role | null {
-  const r = get(ROLE_KEY);
-  return r === "freelancer" ? r : null;
+/** Sau khi đăng xuất: bỏ cuộc trò chuyện đang chờ của tab. */
+export function clearTabLogin() {
+  set(LEGACY_ROLE_KEY, null);
+  set(PENDING_KEY, null);
 }
 
 /** Đọc và xóa kết quả đăng nhập đang chờ áp dụng (chỉ một lần). */

@@ -3,18 +3,20 @@
 import { LogOut, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { initials } from "@/lib/reducer";
-import { useBusinessSession } from "@/lib/store";
+import { useNovaSession } from "@/lib/store";
 import { Avatar, cx } from "./ui";
 
 /**
- * Tài khoản Nova Business đã xác minh (từ cookie phiên do server ký) và lệnh đăng xuất thật.
- * Chỉ hiển thị khi có phiên; dữ liệu chat vẫn là dữ liệu mẫu nên không gán tin nhắn cũ cho danh tính này.
+ * Tài khoản Nova đã xác minh (từ cookie phiên do server ký) và lệnh đăng xuất thật: Business đăng nhập bằng
+ * Nova ID, Talent đăng nhập bằng mã QR trên Nova Mobile. Chỉ hiển thị khi có phiên; dữ liệu chat vẫn là dữ liệu
+ * mẫu nên không gán tin nhắn cũ cho danh tính này. Talent không có Nova ID nên không hiển thị mã nào.
  */
-export function BusinessAccount({ className }: { className?: string }) {
-  const { identity, signOut } = useBusinessSession();
+export function NovaAccount({ className }: { className?: string }) {
+  const { identity, signOut } = useNovaSession();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   if (!identity) return null;
+  const business = identity.role === "business";
 
   const logout = async () => {
     if (busy) return;
@@ -28,16 +30,17 @@ export function BusinessAccount({ className }: { className?: string }) {
   };
 
   return (
-    <section aria-label="Tài khoản Nova Business" className={cx("rounded-xl bg-rail p-3", className)}>
+    <section aria-label={business ? "Tài khoản Nova Business" : "Tài khoản Nova"} className={cx("rounded-xl bg-rail p-3", className)}>
       <div className="flex items-center gap-3">
         <Avatar initials={initials(identity.displayName)} bg="#233138" fg="#FFB65C" size={40} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{identity.displayName}</p>
-          <p className="truncate font-mono text-xs text-ink-2">{identity.publicNovaId}</p>
+          <p className={cx("truncate text-xs text-ink-2", business && "font-mono")}>{business ? identity.publicNovaId : "Freelancer"}</p>
         </div>
       </div>
       <p className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-ink-2">
-        <ShieldCheck size={14} className="shrink-0 text-yellow" aria-hidden /> Nova Business đã xác minh
+        <ShieldCheck size={14} className="shrink-0 text-yellow" aria-hidden />
+        {business ? "Nova Business đã xác minh" : "Nova Mobile đã xác minh"}
       </p>
       <p className="mt-1 text-xs text-muted">Nội dung trò chuyện hiện là dữ liệu demo.</p>
       <button
