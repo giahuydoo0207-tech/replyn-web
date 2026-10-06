@@ -153,6 +153,8 @@ export interface Message {
   refs?: MessageRefs;
   /** tab của panel Replyn Protection mà notice trỏ tới */
   link?: "terms" | "milestones" | "files" | "evidence" | "dispute";
+  /** Người gửi đã thu hồi: chat chỉ hiện dòng thông báo, tab Lưu trữ vẫn giữ nội dung để hai bên đối chiếu. */
+  recalledAt?: number;
 }
 
 /** Giai đoạn của một đề xuất đã được chấp nhận trên Nova, dùng để dựng workspace. */
@@ -176,7 +178,10 @@ export interface NovaAgreement {
   currency: string;
   startDate: string | null;
   deadline: string | null;
+  /** Thời điểm freelancer chấp nhận đề xuất trên Nova; cũng là lúc thỏa thuận được khóa. */
   acceptedAt: number;
+  /** Chỉ có với doanh nghiệp khi server cấu hình NOVA_BUSINESS_WEB_URL và Nova gửi id cuộc trò chuyện. */
+  novaReturnUrl?: string;
 }
 
 export interface Conversation {

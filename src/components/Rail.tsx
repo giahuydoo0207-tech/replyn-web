@@ -31,7 +31,7 @@ export function Rail() {
   const { state, dispatch } = useStore();
   const meId = useMe();
   const user = state.users[meId];
-  const { identity } = useNovaSession();
+  const { identity, realSession } = useNovaSession();
   // vai của phiên thật hiển thị danh tính đã xác minh thay cho tài khoản mẫu; Talent không có Nova ID
   const verified = identity && state.role === identity.role ? identity : null;
   const account = verified
@@ -152,13 +152,16 @@ export function Rail() {
         </ul>
 
         <div className="mt-auto flex flex-col gap-1" ref={menuRef}>
-          <RailItem
-            label="Demo"
-            icon={<Clapperboard size={21} />}
-            active={menu}
-            pinned={expanded}
-            run={() => setMenu((v) => !v)}
-          />
+          {/* Phiên Nova thật không có cảnh demo, đổi vai hay đặt lại demo. */}
+          {!realSession && (
+            <RailItem
+              label="Demo"
+              icon={<Clapperboard size={21} />}
+              active={menu}
+              pinned={expanded}
+              run={() => setMenu((v) => !v)}
+            />
+          )}
           <button
             type="button"
             onClick={() => setMenu((v) => !v)}
@@ -263,7 +266,14 @@ function DemoMenu({
   setRole: (r: Role) => void;
 }) {
   const { state, dispatch } = useStore();
-  const { identity } = useNovaSession();
+  const { identity, realSession } = useNovaSession();
+  if (realSession) {
+    return (
+      <div className="msg-in fixed bottom-3 z-50 w-80 rounded-2xl bg-panel p-3 shadow-2xl ring-1 ring-line" style={{ left }}>
+        {identity ? <NovaAccount /> : <p className="px-1 py-2 text-sm text-ink-2">Đang xác minh phiên Nova…</p>}
+      </div>
+    );
+  }
   return (
     <div
       className="msg-in fixed bottom-3 z-50 max-h-[calc(100dvh-24px)] w-80 overflow-y-auto rounded-2xl bg-panel p-3 shadow-2xl ring-1 ring-line"

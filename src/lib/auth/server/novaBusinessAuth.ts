@@ -46,6 +46,8 @@ export interface AuthEnv {
   REPLYN_SESSION_SECRET?: string;
   /** Secret server-to-server dùng chung với Nova backend, chỉ cho đăng nhập QR. */
   REPLYN_QR_CLIENT_SECRET?: string;
+  /** Origin web Nova Business (không đường dẫn), để doanh nghiệp quay lại đúng cuộc trò chuyện trên Nova. Không bắt buộc. */
+  NOVA_BUSINESS_WEB_URL?: string;
   NODE_ENV?: string;
 }
 
@@ -143,6 +145,26 @@ function readConfig(env: AuthEnv): AuthConfig | null {
   const secureTransport = base.protocol === "https:" || (base.protocol === "http:" && LOOPBACK_HOSTS.has(base.hostname));
   if (!secureTransport || base.username || base.password || base.search || base.hash) return null;
   return { novaOrigin: base.origin, secret, secure: env.NODE_ENV === "production" };
+}
+
+/**
+ * Origin của web Nova Business (`NOVA_BUSINESS_WEB_URL`) dùng cho liên kết "Mở cuộc trò chuyện trên Nova Business".
+ * Không bắt buộc: thiếu hoặc sai thì null và giao diện ẩn liên kết. Chỉ nhận origin HTTPS không có đường dẫn;
+ * http chỉ cho loopback khi không chạy production.
+ */
+export function readNovaBusinessWebOrigin(env: AuthEnv): string | null {
+  const raw = env.NOVA_BUSINESS_WEB_URL?.trim();
+  if (!raw) return null;
+  let base: URL;
+  try {
+    base = new URL(raw);
+  } catch {
+    return null;
+  }
+  const loopback = base.protocol === "http:" && LOOPBACK_HOSTS.has(base.hostname) && env.NODE_ENV !== "production";
+  if (base.protocol !== "https:" && !loopback) return null;
+  if (base.username || base.password || base.search || base.hash || base.pathname !== "/") return null;
+  return base.origin;
 }
 
 /** Cấu hình đăng nhập QR: như trên và thêm secret server-to-server với Nova. */
@@ -658,6 +680,11 @@ export interface PublicWorkspace {
   businessName: string;
   freelancerName: string;
   viewerRole: "business" | "freelancer";
+  /**
+   * Chỉ cho doanh nghiệp: liên kết tới đúng cuộc trò chuyện Nova Business đã gửi đề xuất. Không có khi thiếu cấu
+   * hình hoặc Nova chưa gửi `sourceThreadId`. Freelancer không bao giờ nhận id cuộc trò chuyện Nova.
+   */
+  novaReturnUrl?: string;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -685,7 +712,11 @@ function positiveAmount(value: unknown): number | null {
 }
 
 /** Kiểm tra chặt dữ liệu Nova trả về; một trường sai là bỏ cả workspace thay vì hiển thị nửa vời. */
-export function parseNovaWorkspace(raw: unknown, viewerRole: "business" | "freelancer"): PublicWorkspace | null {
+export function parseNovaWorkspace(
+  raw: unknown,
+  viewerRole: "business" | "freelancer",
+  novaBusinessWebOrigin: string | null = null,
+): PublicWorkspace | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const w = raw as Record<string, unknown>;
   const projectName = cleanText(w.projectName, 160);
@@ -724,9 +755,15 @@ export function parseNovaWorkspace(raw: unknown, viewerRole: "business" | "freel
     if (!title || amount === null || due === undefined) return null;
     milestones.push({ title, amount, deadline: due });
   }
+  // `sourceThreadId` không bắt buộc (backend Nova cũ chưa gửi); sai định dạng thì bỏ qua, không loại workspace.
+  const sourceThreadId = typeof w.sourceThreadId === "string" && UUID.test(w.sourceThreadId) ? w.sourceThreadId.toLowerCase() : null;
+  const novaReturnUrl = viewerRole === "business" && novaBusinessWebOrigin && sourceThreadId
+    ? `${novaBusinessWebOrigin}/business/messages?thread=${encodeURIComponent(sourceThreadId)}`
+    : null;
   return {
     workspaceId: w.workspaceId.toLowerCase(), projectName, scope, deliverables, revisionLimit, currency: "USDC", totalAmount,
     startDate, deadline, reviewPeriodDays, milestones, notes, acceptedAt, businessName, freelancerName, viewerRole,
+    ...(novaReturnUrl ? { novaReturnUrl } : {}),
   };
 }
 
@@ -740,6 +777,7 @@ export async function lookupNovaWorkspaces(
   workspaceId: string | null,
   fetchImpl: typeof fetch,
   timeoutMs: number,
+  novaBusinessWebOrigin: string | null = null,
 ): Promise<WorkspaceLookup> {
   const response = await postToNova(
     `${novaOrigin}/api/v1/integrations/replyn/workspaces/lookup`,
@@ -756,7 +794,7 @@ export async function lookupNovaWorkspaces(
   if (!body || !Array.isArray(body.workspaces) || body.workspaces.length > MAX_WORKSPACES) return { kind: "unavailable" };
   const workspaces: PublicWorkspace[] = [];
   for (const raw of body.workspaces) {
-    const parsed = parseNovaWorkspace(raw, session.role);
+    const parsed = parseNovaWorkspace(raw, session.role, novaBusinessWebOrigin);
     if (!parsed) return { kind: "unavailable" };
     workspaces.push(parsed);
   }
@@ -785,6 +823,7 @@ export async function handleWorkspaces(request: Request, deps: AuthDeps, workspa
     workspaceId?.toLowerCase() ?? null,
     deps.fetch,
     deps.timeoutMs ?? NOVA_TIMEOUT_MS,
+    readNovaBusinessWebOrigin(deps.env),
   );
   if (result.kind === "not_found") return json(404, { error: "not_found" });
   if (result.kind === "unavailable") return json(503, { error: "unavailable" });

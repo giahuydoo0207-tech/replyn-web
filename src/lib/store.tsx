@@ -4,8 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { clearTabLogin, consumePendingLogin, type PendingLogin } from "./auth/demoSession";
 import { fetchNovaSession, logoutBusiness, type NovaIdentity } from "./auth/novaBusinessClient";
 import { fetchNovaWorkspaces } from "./auth/novaWorkspaceClient";
-import { me, novaWsId, reducer, wsChatId, type Action, type AppState } from "./reducer";
-import { initialState } from "./seed";
+import { activeNovaWorkspace, me, novaWsId, reducer, wsChatId, type Action, type AppState } from "./reducer";
+import { initialState, novaSessionState } from "./seed";
 
 const StoreCtx = createContext<{ state: AppState; dispatch: Dispatch<Action> } | null>(null);
 
@@ -14,6 +14,13 @@ interface NovaSession {
   identity: NovaIdentity | null;
   /** Đăng xuất Nova. False nếu server chưa xóa được phiên; khi đó vẫn giữ trạng thái đăng nhập. */
   signOut: () => Promise<boolean>;
+  /**
+   * Phiên Nova thật (hoặc route /workspace/{id}, vốn bắt buộc đăng nhập): không có dữ liệu mẫu, không có đổi vai,
+   * cảnh demo hay đặt lại demo. False: chế độ demo ẩn danh, giữ nguyên như cũ.
+   */
+  realSession: boolean;
+  /** Đã nạp xong workspace thật từ Nova (kể cả khi không có workspace nào). */
+  workspacesLoaded: boolean;
 }
 
 const NovaSessionCtx = createContext<NovaSession | null>(null);
@@ -23,9 +30,13 @@ const NovaSessionCtx = createContext<NovaSession | null>(null);
  * rồi quay lại đúng đường dẫn này; server kiểm tra quyền truy cập workspace.
  */
 export function StoreProvider({ children, workspaceId }: { children: ReactNode; workspaceId?: string }) {
-  const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  // /workspace/{id} luôn cần phiên Nova thật nên không dựng dữ liệu mẫu; trang chủ giữ demo tới khi xác minh xong phiên.
+  const [state, dispatch] = useReducer(reducer, workspaceId, (id?: string) =>
+    id ? novaSessionState({ role: "business", name: "Tài khoản Nova" }, 0) : initialState(),
+  );
   const [notice, setNotice] = useState<string | null>(null);
   const [identity, setIdentity] = useState<NovaIdentity | null>(null);
+  const [workspacesLoaded, setWorkspacesLoaded] = useState(false);
   // Đọc đúng một lần: StrictMode chạy effect hai lần mà sessionStorage chỉ trả kết quả đăng nhập ở lần đầu.
   const pendingRef = useRef<PendingLogin | null | undefined>(undefined);
 
@@ -49,7 +60,9 @@ export function StoreProvider({ children, workspaceId }: { children: ReactNode; 
         return;
       }
       setIdentity(verified);
-      dispatch({ type: "SET_ROLE", role: verified.role });
+      const viewer = { role: verified.role, name: verified.displayName };
+      // Phiên thật: bỏ ngay toàn bộ người, cuộc trò chuyện và workspace mẫu, kể cả trong lúc chờ Nova trả workspace.
+      dispatch({ type: "REPLACE", state: novaSessionState(viewer, Date.now()) });
       const [list, target] = await Promise.all([
         fetchNovaWorkspaces(),
         workspaceId ? fetchNovaWorkspaces(workspaceId) : Promise.resolve(null),
@@ -58,8 +71,9 @@ export function StoreProvider({ children, workspaceId }: { children: ReactNode; 
       const workspaces = [...(target?.kind === "ok" ? target.workspaces : []), ...(list.kind === "ok" ? list.workspaces : [])]
         .filter((w, i, all) => all.findIndex((x) => x.workspaceId === w.workspaceId) === i);
       if (workspaces.length) {
-        dispatch({ type: "LOAD_NOVA_WORKSPACES", viewer: { role: verified.role, name: verified.displayName }, workspaces });
+        dispatch({ type: "LOAD_NOVA_WORKSPACES", viewer, workspaces });
       }
+      setWorkspacesLoaded(true);
       const open = (id: string, tab: "terms" | "milestones") => {
         dispatch({ type: "SELECT_CHAT", chatId: wsChatId(novaWsId(id)) });
         dispatch({ type: "SET_PANEL", tab, open: tab === "terms" });
@@ -72,9 +86,12 @@ export function StoreProvider({ children, workspaceId }: { children: ReactNode; 
         } else {
           show("Chưa tải được workspace từ Nova. Hãy tải lại trang.");
         }
-      } else if (pending?.fallback && workspaces[0]) {
-        // Đăng nhập không kèm workspace: mở thỏa thuận được chấp nhận gần nhất thay vì kênh mặc định.
+      } else if (pending && workspaces[0]) {
+        // Vừa đăng nhập không kèm workspace: cuộc trò chuyện mẫu không còn trong phiên thật, nên mở thỏa thuận
+        // được chấp nhận gần nhất.
         open(workspaces[0].workspaceId, "milestones");
+      } else if (list.kind !== "ok") {
+        show("Chưa tải được workspace từ Nova. Hãy tải lại trang.");
       }
     });
     return () => {
@@ -95,7 +112,20 @@ export function StoreProvider({ children, workspaceId }: { children: ReactNode; 
     window.location.replace("/auth/nova");
     return true;
   }, []);
-  const session = useMemo(() => ({ identity, signOut }), [identity, signOut]);
+  const realSession = identity !== null || !!workspaceId;
+  const session = useMemo(
+    () => ({ identity, signOut, realSession, workspacesLoaded }),
+    [identity, signOut, realSession, workspacesLoaded],
+  );
+
+  // Workspace thật đang mở (hội thoại hoặc công cụ dự án) → /workspace/{id}, để tải lại trang vẫn mở đúng workspace
+  // cho cả Business lẫn Freelancer. Dữ liệu mẫu không có id Nova nên URL demo giữ nguyên.
+  const activeNovaWorkspaceId = activeNovaWorkspace(state);
+  useEffect(() => {
+    if (!activeNovaWorkspaceId) return;
+    const path = `/workspace/${encodeURIComponent(activeNovaWorkspaceId)}`;
+    if (window.location.pathname !== path) window.history.replaceState(null, "", path);
+  }, [activeNovaWorkspaceId]);
 
   return (
     <StoreCtx.Provider value={{ state, dispatch }}>

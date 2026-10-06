@@ -8,8 +8,8 @@ import { Avatar, cx } from "./ui";
 
 /**
  * Tài khoản Nova đã xác minh (từ cookie phiên do server ký) và lệnh đăng xuất thật: Business đăng nhập bằng
- * Nova ID, Talent đăng nhập bằng mã QR trên Nova Mobile. Chỉ hiển thị khi có phiên; dữ liệu chat vẫn là dữ liệu
- * mẫu nên không gán tin nhắn cũ cho danh tính này. Talent không có Nova ID nên không hiển thị mã nào.
+ * Nova ID, Talent đăng nhập bằng mã QR trên Nova Mobile. Chỉ hiển thị khi có phiên; phiên thật chỉ có workspace
+ * thật từ Nova, không có dữ liệu mẫu. Talent không có Nova ID nên không hiển thị mã nào.
  */
 export function NovaAccount({ className }: { className?: string }) {
   const { identity, signOut } = useNovaSession();
@@ -42,7 +42,7 @@ export function NovaAccount({ className }: { className?: string }) {
         <ShieldCheck size={14} className="shrink-0 text-yellow" aria-hidden />
         {business ? "Nova Business đã xác minh" : "Nova Mobile đã xác minh"}
       </p>
-      <p className="mt-1 text-xs text-muted">Nội dung trò chuyện hiện là dữ liệu demo.</p>
+      <p className="mt-1 text-xs text-muted">Các thao tác trong workspace là mô phỏng và chỉ lưu trên trình duyệt này.</p>
       <button
         type="button"
         onClick={logout}

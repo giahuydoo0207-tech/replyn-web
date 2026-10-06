@@ -31,7 +31,7 @@ export const defaultTab = (ws: Workspace): PanelTab => (openDisputes(ws).length 
 
 /** Thứ tự tab theo ngữ cảnh: tranh chấp mở thì đưa lên đầu */
 export function tabOrder(ws: Workspace): PanelTab[] {
-  const base: PanelTab[] = ["terms", "milestones", "files", "evidence", "dispute"];
+  const base: PanelTab[] = ["terms", "milestones", "files", "evidence", "dispute", "archive"];
   return openDisputes(ws).length ? ["dispute", ...base.filter((t) => t !== "dispute")] : base;
 }
 

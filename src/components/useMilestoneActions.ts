@@ -60,7 +60,7 @@ export function useMilestoneActions(ws: Workspace, ms: Milestone): { actions: Ms
     case "ready_to_release":
       return isBiz
         ? { actions: [{ key: "release", label: "Giải ngân (mô phỏng)", variant: "primary", run: () => dispatch({ type: "RELEASE", ...t }) }] }
-        : { actions: [], waiting: "Đủ điều kiện giải ngân, chờ doanh nghiệp xác nhận" };
+        : { actions: [], waiting: "Đủ điều kiện giải ngân (mô phỏng), chờ doanh nghiệp xác nhận" };
     case "disputed":
       return {
         actions: [{ key: "view", label: "Xem hỗ trợ", variant: "danger", run: openDispute }],

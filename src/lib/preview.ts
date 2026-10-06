@@ -23,7 +23,7 @@ export function noticeText(s: AppState, m: Message): string {
     case "dispute":
       return `Đã yêu cầu hỗ trợ · Giai đoạn ${idx}`;
     case "decision":
-      return `Đội ngũ Nova đã đưa ra phương án xử lý${ms?.payout ? ` · ${DECISION_LABEL[ms.payout.decision]}` : ""}`;
+      return `Đội ngũ Nova đã đưa ra phương án xử lý${ms?.payout ? ` · ${DECISION_LABEL[ms.payout.decision]} (mô phỏng)` : ""}`;
     default:
       return m.text ?? "";
   }
@@ -31,6 +31,7 @@ export function noticeText(s: AppState, m: Message): string {
 
 /** Một dòng tóm tắt tin nhắn cho chat list và reply quote */
 export function previewOf(s: AppState, m: Message): string {
+  if (m.recalledAt) return "Tin nhắn đã được thu hồi";
   switch (m.kind) {
     case "text":
       return m.text ?? "";
