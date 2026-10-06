@@ -1,4 +1,4 @@
-import { FileCheck2, FolderOpen, ListChecks, ScrollText, TriangleAlert } from "lucide-react";
+import { Archive, FileCheck2, FolderOpen, ListChecks, ScrollText, TriangleAlert } from "lucide-react";
 import type { PanelTab } from "@/lib/reducer";
 
 export const PROJECT_TOOLS = [
@@ -7,4 +7,5 @@ export const PROJECT_TOOLS = [
   { tab: "files", label: "Sản phẩm", menuLabel: "Bàn giao sản phẩm", icon: FolderOpen, hint: "Tệp bàn giao và các phiên bản" },
   { tab: "evidence", label: "Nhật ký", menuLabel: "Xem nhật ký", icon: ScrollText, hint: "Lịch sử hoạt động của dự án" },
   { tab: "dispute", label: "Hỗ trợ", menuLabel: "Yêu cầu hỗ trợ", icon: TriangleAlert, hint: "Bất đồng và phương án xử lý" },
+  { tab: "archive", label: "Lưu trữ", menuLabel: "Xem lưu trữ", icon: Archive, hint: "Tin nhắn đã lưu, kể cả tin đã thu hồi" },
 ] satisfies { tab: PanelTab; label: string; menuLabel: string; icon: typeof FileCheck2; hint: string }[];

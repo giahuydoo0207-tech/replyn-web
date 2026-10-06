@@ -204,9 +204,16 @@ test("Nova being down, slow or failing is reported as unavailable, without detai
   const hanging = async (_url, init) =>
     new Promise((_resolve, reject) => init.signal.addEventListener("abort", () => reject(init.signal.reason)));
   const started = Date.now();
-  const { res } = await login(hanging, { novaId: NOVA_ID, novaKey: key() }, { timeoutMs: 50 });
-  assert.equal(res.status, 503);
-  assert.ok(Date.now() - started < 2000);
+  // Timer của AbortSignal.timeout không giữ event loop (unref); một timer thường giữ tiến trình sống tới khi
+  // fetch bị abort, nếu không Node 22 coi test chưa xong và hủy các test còn lại.
+  const keepAlive = setTimeout(() => {}, 5000);
+  try {
+    const { res } = await login(hanging, { novaId: NOVA_ID, novaKey: key() }, { timeoutMs: 50 });
+    assert.equal(res.status, 503);
+    assert.ok(Date.now() - started < 2000);
+  } finally {
+    clearTimeout(keepAlive);
+  }
 });
 
 test("a 200 from Nova is only trusted when it matches the expected identity", async () => {

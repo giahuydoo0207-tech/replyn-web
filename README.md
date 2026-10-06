@@ -40,7 +40,7 @@ $env:BASE_URL="http://localhost:3000"; npm run screens   # ảnh lưu ở ./scre
 Route `/auth/nova`, ví dụ `/auth/nova?handoff=demo-handoff-01&conversation=nova-khoa`. Server Replyn
 (`src/lib/auth/server/novaBusinessAuth.ts`) gọi Nova backend; trình duyệt chỉ gọi route same-origin của Replyn.
 Biến môi trường (chỉ server, không bao giờ `NEXT_PUBLIC_`): `NOVA_API_URL`, `REPLYN_SESSION_SECRET`,
-`REPLYN_QR_CLIENT_SECRET` (xem `.env.example`).
+`REPLYN_QR_CLIENT_SECRET` và `NOVA_BUSINESS_WEB_URL` (không bắt buộc) (xem `.env.example`).
 
 - **Nova ID** (Business): Nova ID là định danh công khai nên luôn đi kèm **Nova Key**; `POST /api/auth/nova/business`
   xác minh cặp này với Nova. Nova Key không được lưu.
@@ -62,7 +62,8 @@ $env:BASE_URL="http://localhost:3000"; npm run test:login   # ảnh login-*.png 
 ```
 
 `npm run test:login` dùng máy chủ Nova giả trên máy (tự duyệt challenge thay cho Nova Mobile) và giải mã lại ảnh chụp
-QR bằng `jsqr` (devDependency) để chắc mã vẫn quét được khi có logo ở giữa. `npm run test:auth` kiểm thử server.
+QR bằng `jsqr` (devDependency) để chắc mã vẫn quét được khi có logo ở giữa. `npm run test:auth` kiểm thử server,
+`npm run test:workspace` kiểm thử reducer workspace; `npm test` chạy cả hai.
 
 ## IA: tách lớp Chat và lớp Protection
 
@@ -96,8 +97,16 @@ Nova Chat trong dữ liệu mẫu chỉ để xem.
   workspace của người khác đều trả 404; trình duyệt không nhận mã hồ sơ nội bộ.
 - Danh tính thật ngồi ghế riêng (`nova-me`), không dùng ghế mẫu `u-ha` / `u-khoa`. Talent đăng nhập bằng QR mà không có
   `returnTo` sẽ được mở workspace được chấp nhận gần nhất, nếu có.
-- Giới hạn: thỏa thuận, milestone và hai bên đến từ Nova; các thao tác trong workspace (xác nhận thỏa thuận, nộp sản
-  phẩm, nghiệm thu, nhật ký) vẫn là mô phỏng trong từng trình duyệt, chưa đồng bộ giữa hai bên.
+- Phiên Nova thật (Business hoặc Talent) không có dữ liệu mẫu: không người, nhóm, workspace mẫu, không đổi vai, cảnh
+  demo hay đặt lại demo. Chưa có workspace thì chat list báo workspace sẽ xuất hiện khi đề xuất được chấp nhận.
+- Thỏa thuận đã khóa sẵn cho cả hai bên tại thời điểm freelancer chấp nhận đề xuất trên Nova (`acceptedAt`), không
+  còn nút xác nhận. Mỗi workspace có đúng một mục ở chat list (hội thoại Nova chỉ xem → biểu tượng bìa hồ sơ để vào
+  workspace). Mở hội thoại hoặc workspace thì URL đổi thành `/workspace/{id}` nên tải lại trang vẫn mở đúng chỗ.
+- Nova có thể gửi thêm `sourceThreadId` (không bắt buộc). Khi có và server đặt `NOVA_BUSINESS_WEB_URL`, server tính sẵn
+  liên kết về cuộc trò chuyện trên Nova Business cho doanh nghiệp; freelancer không bao giờ nhận id này. Giao diện hiện
+  không hiển thị liên kết này.
+- Giới hạn: thỏa thuận, milestone và hai bên đến từ Nova; các thao tác trong workspace (ký quỹ, nộp sản phẩm, nghiệm
+  thu, hỗ trợ, nhật ký) vẫn là mô phỏng trong từng trình duyệt, chưa đồng bộ giữa hai bên.
 
 Mọi bước cũng làm được bằng thao tác thật: kéo thả file vào khung chat để nộp sản phẩm (hash tính ngay trên
 trình duyệt), hoặc dùng các nút trong panel Replyn Protection.

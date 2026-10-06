@@ -72,12 +72,12 @@ function MilestonePanelCard({ ws, ms, idx }: { ws: Workspace; ms: Milestone; idx
             <dd>{usdc(est.fee)}</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-muted">Người thực hiện dự kiến nhận</dt>
+            <dt className="text-muted">Người thực hiện dự kiến nhận (mô phỏng)</dt>
             <dd className="font-medium">{usdc(est.freelancerNet)}</dd>
           </div>
           {est.businessRefund > 0 && (
             <div className="flex justify-between gap-3">
-              <dt className="text-muted">Doanh nghiệp dự kiến nhận lại</dt>
+              <dt className="text-muted">Doanh nghiệp dự kiến nhận lại (mô phỏng)</dt>
               <dd className="font-medium">{usdc(est.businessRefund)}</dd>
             </div>
           )}

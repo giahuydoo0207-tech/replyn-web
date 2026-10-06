@@ -6,7 +6,7 @@ import { listTime } from "@/lib/format";
 import { previewOf } from "@/lib/preview";
 import { SYSTEM_ID, visibleTo, workspaceHeadline, type ListFilter } from "@/lib/reducer";
 import { milestonesNeedingMe, openDisputes } from "@/lib/protection";
-import { useMe, useStore } from "@/lib/store";
+import { useMe, useNovaSession, useStore } from "@/lib/store";
 import type { Conversation } from "@/lib/types";
 import { Avatar, cx, IconButton, StatusBadge } from "./ui";
 import { NavigationMenu } from "./NavigationMenu";
@@ -28,6 +28,8 @@ function KindIcon({ conv }: { conv: Conversation }) {
 export function ChatList({ onOpen }: { onOpen?: () => void }) {
   const { state, dispatch } = useStore();
   const meId = useMe();
+  const { realSession, workspacesLoaded } = useNovaSession();
+  const noWorkspaces = realSession && Object.keys(state.workspaces).length === 0;
   const [q, setQ] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const { filter, activeChatId } = state.ui;
@@ -46,7 +48,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
       const ws = wsId ? state.workspaces[wsId] : undefined;
       const msgs = [...(state.messages[id] ?? []), ...(linked ? state.messages[linked.id] ?? [] : [])];
       if (needle) {
-        const hay = (c.title + " " + msgs.map((m) => m.text ?? "").join(" ")).toLowerCase();
+        const hay = (c.title + " " + msgs.map((m) => (m.recalledAt ? "" : m.text ?? "")).join(" ")).toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       switch (filter) {
@@ -131,7 +133,13 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
 
       <ul className="thin-scroll flex-1 overflow-y-auto px-2 pb-3">
         {items.length === 0 && (
-          <li className="px-6 py-12 text-center text-sm text-ink-2">Không có cuộc trò chuyện nào khớp bộ lọc.</li>
+          <li className="px-6 py-12 text-center text-sm text-ink-2">
+            {noWorkspaces && !workspacesLoaded
+              ? "Đang tải workspace từ Nova…"
+              : noWorkspaces
+              ? "Chưa có workspace nào. Workspace sẽ xuất hiện khi đề xuất trên Nova được chấp nhận."
+              : "Không có cuộc trò chuyện nào khớp bộ lọc."}
+          </li>
         )}
         {items.map((id) => {
           const c = state.conversations[id];
@@ -152,7 +160,8 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
               <button
                 type="button"
                 onClick={() => {
-                  dispatch({ type: "SELECT_CHAT", chatId: id });
+                  // Dự án mở thẳng vào hội thoại workspace; trao đổi trước khi chốt nằm trong tab Lưu trữ.
+                  dispatch({ type: "SELECT_CHAT", chatId: linked ? linked.id : id });
                   onOpen?.();
                 }}
                 aria-current={active ? "true" : undefined}

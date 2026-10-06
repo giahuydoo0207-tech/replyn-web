@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "screens": "node scripts/screens.mjs",
     "test:login": "node scripts/nova-login.mjs",
-    "test:auth": "node --test \"tests/auth/*.test.mjs\""
+    "test": "node --test \"tests/auth/*.test.mjs\" \"tests/workspace/*.test.mjs\"",
+    "test:auth": "node --test \"tests/auth/*.test.mjs\"",
+    "test:workspace": "node --test \"tests/workspace/*.test.mjs\""
   },
   "dependencies": {
     "lucide-react": "^1.49.0",

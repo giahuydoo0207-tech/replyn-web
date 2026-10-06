@@ -1,6 +1,6 @@
 import { mockHash, vnTime } from "./format";
-import { reducer, wsChatId, type Action, type AppState } from "./reducer";
-import type { Conversation, Message, ProposalDraft, User } from "./types";
+import { NOVA_ME, NOVA_TEAM_ID, reducer, SYSTEM_ID, wsChatId, type Action, type AppState } from "./reducer";
+import type { Conversation, Message, ProposalDraft, Role, User } from "./types";
 
 /** Giờ demo: sáng chung kết UniHackFest */
 export const DEMO_NOW = vnTime(2026, 10, 10, 9, 0);
@@ -250,6 +250,36 @@ export function initialState(): AppState {
       [wsChatId("ws-tramay")]: { ...s.conversations[wsChatId("ws-tramay")], unread: 1 },
     },
     ui: { ...s.ui, activeChatId: "nova-khoa", panelOpen: false },
+  };
+}
+
+/**
+ * Trạng thái của phiên Nova thật (Business hoặc Talent): không có người, cuộc trò chuyện hay workspace mẫu.
+ * Workspace thật được nạp sau bằng LOAD_NOVA_WORKSPACES. `now`: giờ thật của trình duyệt.
+ */
+export function novaSessionState(viewer: { role: Role; name: string }, now: number): AppState {
+  return {
+    seq: 0,
+    clock: now,
+    role: viewer.role,
+    roleUser: { business: NOVA_ME, freelancer: NOVA_ME },
+    users: {
+      [SYSTEM_ID]: users[SYSTEM_ID],
+      [NOVA_TEAM_ID]: users[NOVA_TEAM_ID],
+      [NOVA_ME]: {
+        id: NOVA_ME,
+        name: viewer.name,
+        short: viewer.name,
+        title: viewer.role === "business" ? "Doanh nghiệp · Nova" : "Freelancer · Nova",
+        color: "#FFD33D",
+      },
+    },
+    conversations: {},
+    order: [],
+    messages: {},
+    workspaces: {},
+    looseFiles: {},
+    ui: { activeChatId: null, panelTab: "milestones", panelOpen: false, filter: "all", flashId: null },
   };
 }
 

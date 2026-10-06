@@ -3,7 +3,13 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { test } from "node:test";
-import { handleWorkspaces, SESSION_COOKIE, signSession } from "../../src/lib/auth/server/novaBusinessAuth.ts";
+import {
+  handleWorkspaces,
+  parseNovaWorkspace,
+  readNovaBusinessWebOrigin,
+  SESSION_COOKIE,
+  signSession,
+} from "../../src/lib/auth/server/novaBusinessAuth.ts";
 
 const ORIGIN = "https://replyn.test";
 const NOVA = "https://nova.test";
@@ -120,4 +126,73 @@ test("cross-site requests and missing configuration are refused", async () => {
   const unconfigured = { env: env({ REPLYN_QR_CLIENT_SECRET: "" }), fetch: backend.fetch, now: () => NOW };
   assert.equal((await handleWorkspaces(request("/api/workspaces", talentSession()), unconfigured, null)).status, 503);
   assert.equal(backend.calls.length, 0);
+});
+
+/* ---------- quay lại cuộc trò chuyện trên Nova Business ---------- */
+
+const THREAD = randomUUID();
+const BUSINESS_WEB = "https://business.nova.test";
+
+test("sourceThreadId is optional: workspaces from an older Nova backend are still accepted", () => {
+  for (const role of ["business", "freelancer"]) {
+    const parsed = parseNovaWorkspace(workspace({ viewerRole: role }), role, BUSINESS_WEB);
+    assert.ok(parsed, role);
+    assert.equal(parsed.novaReturnUrl, undefined);
+    assert.equal(parsed.sourceThreadId, undefined);
+  }
+  // Id cuộc trò chuyện sai định dạng: bỏ qua liên kết, không loại workspace.
+  for (const bad of ["not-a-uuid", 42, null, `${THREAD}/../x`]) {
+    const parsed = parseNovaWorkspace(workspace({ viewerRole: "business", sourceThreadId: bad }), "business", BUSINESS_WEB);
+    assert.ok(parsed, String(bad));
+    assert.equal(parsed.novaReturnUrl, undefined);
+  }
+});
+
+test("only the business gets a return URL, and only when NOVA_BUSINESS_WEB_URL is configured", () => {
+  const biz = parseNovaWorkspace(workspace({ viewerRole: "business", sourceThreadId: THREAD }), "business", BUSINESS_WEB);
+  assert.equal(biz.novaReturnUrl, `${BUSINESS_WEB}/business/messages?thread=${THREAD}`);
+  assert.equal(biz.sourceThreadId, undefined, "the raw thread id is not passed through");
+
+  const talent = parseNovaWorkspace(workspace({ sourceThreadId: THREAD }), "freelancer", BUSINESS_WEB);
+  assert.equal(talent.novaReturnUrl, undefined);
+  assert.ok(!JSON.stringify(talent).includes(THREAD), "the freelancer never receives the Nova thread id");
+
+  const unconfigured = parseNovaWorkspace(workspace({ viewerRole: "business", sourceThreadId: THREAD }), "business", null);
+  assert.equal(unconfigured.novaReturnUrl, undefined);
+});
+
+test("NOVA_BUSINESS_WEB_URL must be an https origin without a path", () => {
+  const read = (value, NODE_ENV = "production") => readNovaBusinessWebOrigin({ NOVA_BUSINESS_WEB_URL: value, NODE_ENV });
+  assert.equal(read("https://business.nova.test"), "https://business.nova.test");
+  assert.equal(read("https://business.nova.test/"), "https://business.nova.test");
+  assert.equal(read(undefined), null);
+  assert.equal(read(""), null);
+  assert.equal(read("not a url"), null);
+  assert.equal(read("http://business.nova.test"), null);
+  assert.equal(read("https://business.nova.test/business"), null);
+  assert.equal(read("https://business.nova.test/?x=1"), null);
+  assert.equal(read("https://business.nova.test/#x"), null);
+  assert.equal(read("https://user:pass@business.nova.test"), null);
+  assert.equal(read("javascript:alert(1)"), null);
+  // http chỉ cho máy chủ trên chính máy khi không chạy production.
+  assert.equal(read("http://localhost:3001", "production"), null);
+  assert.equal(read("http://localhost:3001", "development"), "http://localhost:3001");
+});
+
+test("the workspaces API returns the return URL to the business and never the thread id to the freelancer", async () => {
+  const configured = env({ NOVA_BUSINESS_WEB_URL: BUSINESS_WEB });
+  const bizBackend = nova(() => Response.json({ workspaces: [workspace({ viewerRole: "business", sourceThreadId: THREAD })] }));
+  const biz = await handleWorkspaces(request("/api/workspaces", businessSession()), { env: configured, fetch: bizBackend.fetch, now: () => NOW }, null);
+  assert.equal(biz.status, 200);
+  assert.equal((await biz.json()).workspaces[0].novaReturnUrl, `${BUSINESS_WEB}/business/messages?thread=${THREAD}`);
+
+  const talentBackend = nova(() => Response.json({ workspaces: [workspace({ sourceThreadId: THREAD })] }));
+  const talent = await handleWorkspaces(request("/api/workspaces", talentSession()), { env: configured, fetch: talentBackend.fetch, now: () => NOW }, null);
+  assert.equal(talent.status, 200);
+  const text = await talent.text();
+  assert.ok(!text.includes(THREAD));
+  assert.ok(!text.includes("novaReturnUrl"));
+
+  const noEnv = await handleWorkspaces(request("/api/workspaces", businessSession()), { env: env(), fetch: bizBackend.fetch, now: () => NOW }, null);
+  assert.equal((await noEnv.json()).workspaces[0].novaReturnUrl, undefined);
 });

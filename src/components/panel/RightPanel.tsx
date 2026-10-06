@@ -1,10 +1,12 @@
 "use client";
 
-import { ArrowLeft, MessageCircle, X } from "lucide-react";
+import { ArrowLeft, LibraryBig, MessageCircle, X } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { milestonesNeedingMe, openDisputes } from "@/lib/protection";
 import { useActiveChat, useMe, useStore } from "@/lib/store";
 import { PROJECT_TOOLS } from "../projectTools";
 import { Avatar, cx, IconButton } from "../ui";
+import { ArchiveTab } from "./ArchiveTab";
 import { DisputeTab } from "./DisputeTab";
 import { EvidenceTab } from "./EvidenceTab";
 import { FilesTab } from "./FilesTab";
@@ -18,7 +20,12 @@ export function RightPanel({ onBack }: { onBack: () => void }) {
   const { conv, ws } = useActiveChat();
   const meId = useMe();
   const tab = state.ui.panelTab;
-  const current = PROJECT_TOOLS.find((item) => item.tab === tab) ?? PROJECT_TOOLS[1];
+  const activeTabRef = useRef<HTMLButtonElement>(null);
+  // Tab đang mở (vd. Lưu trữ ở cuối) luôn nằm trong vùng nhìn thấy trên màn hẹp.
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [tab]);
+  const current = PROJECT_TOOLS.find((item) => item.tab === tab) ?? PROJECT_TOOLS.find((item) => item.tab === "milestones")!;
 
   if (!conv || !ws) {
     return (
@@ -48,6 +55,8 @@ export function RightPanel({ onBack }: { onBack: () => void }) {
           <p className="truncate text-[13px] text-muted">Công cụ dự án · {current.label}</p>
         </div>
         <span className="hidden rounded bg-white/6 px-2 py-1 text-xs text-muted sm:inline">Mô phỏng</span>
+        {/* Cùng icon bìa ở header chat: bấm lại để gập hồ sơ, quay về cuộc trò chuyện. */}
+        <IconButton label="Đóng hồ sơ dự án" aria-pressed active onClick={onBack}><LibraryBig size={20} /></IconButton>
         <IconButton label="Đóng công cụ dự án" onClick={onBack}><X size={20} /></IconButton>
       </header>
 
@@ -57,6 +66,7 @@ export function RightPanel({ onBack }: { onBack: () => void }) {
           return (
             <button
               key={item.tab}
+              ref={tab === item.tab ? activeTabRef : undefined}
               type="button"
               aria-current={tab === item.tab ? "page" : undefined}
               onClick={() => dispatch({ type: "SET_PANEL", tab: item.tab, open: true })}
@@ -81,11 +91,18 @@ export function RightPanel({ onBack }: { onBack: () => void }) {
             <current.icon size={22} className="mt-0.5 shrink-0 text-ink-2" />
             <div><h2 className="text-lg font-semibold">{current.label}</h2><p className="mt-0.5 text-sm text-muted">{current.hint}</p></div>
           </div>
+          {ws.agreement && (tab === "milestones" || tab === "files" || tab === "dispute") && (
+            // Workspace thật: thỏa thuận đến từ Nova, còn ký quỹ, nộp sản phẩm và hỗ trợ chưa đồng bộ giữa hai bên.
+            <p className="-mt-2 mb-4 rounded-lg bg-white/[0.04] px-3 py-2 text-[13px] text-ink-2">
+              Các thao tác trong workspace là mô phỏng và chỉ lưu trên trình duyệt này.
+            </p>
+          )}
           {tab === "terms" && <TermsTab ws={ws} />}
           {tab === "milestones" && <MilestonesTab ws={ws} />}
           {tab === "files" && <FilesTab ws={ws} />}
           {tab === "evidence" && <EvidenceTab ws={ws} />}
           {tab === "dispute" && <DisputeTab ws={ws} />}
+          {tab === "archive" && <ArchiveTab ws={ws} />}
           <button onClick={onBack} className="mt-7 inline-flex items-center gap-2 text-sm text-ink-2 hover:text-ink"><MessageCircle size={16} />Về cuộc trò chuyện</button>
         </div>
       </div>

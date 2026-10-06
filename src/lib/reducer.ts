@@ -36,6 +36,8 @@ export interface NovaWorkspace {
   businessName: string;
   freelancerName: string;
   viewerRole: Role;
+  /** Chỉ doanh nghiệp: liên kết về cuộc trò chuyện trên Nova Business (server tính, có thể không có). */
+  novaReturnUrl?: string;
 }
 
 /** Ghế của danh tính Nova thật đang đăng nhập (thay cho ghế dữ liệu mẫu). */
@@ -43,7 +45,7 @@ export const NOVA_ME = "nova-me";
 export const novaWsId = (workspaceId: string) => `nova-${workspaceId}`;
 export const novaSourceChatId = (workspaceId: string) => `nova-source-${workspaceId}`;
 
-export type PanelTab = "terms" | "milestones" | "files" | "evidence" | "dispute";
+export type PanelTab = "archive" | "terms" | "milestones" | "files" | "evidence" | "dispute";
 export type ListFilter = "all" | "unread" | "replyn" | "tasks" | "files" | "review" | "dispute";
 
 export interface UiState {
@@ -83,6 +85,8 @@ export type Action =
   | { type: "SET_FILTER"; filter: ListFilter }
   | { type: "TOGGLE_PIN"; chatId: string }
   | { type: "TOGGLE_MUTE"; chatId: string }
+  | { type: "MARK_UNREAD"; chatId: string }
+  | { type: "RECALL_MESSAGE"; chatId: string; messageId: string }
   | { type: "FLASH"; id: string | null }
   | { type: "SEND_TEXT"; chatId: string; text: string; senderId?: string; replyToId?: string }
   | { type: "SEND_FILE"; chatId: string; file: NewFile; senderId?: string; text?: string }
@@ -136,8 +140,8 @@ export const STATUS_LABEL: Record<MilestoneStatus, string> = {
   ready_to_release: "Đủ điều kiện giải ngân",
   disputed: "Đang được hỗ trợ",
   released_sim: "Đã giải ngân (mô phỏng)",
-  refunded: "Quyết định hoàn tiền",
-  split: "Quyết định chia tiền",
+  refunded: "Quyết định hoàn tiền (mô phỏng)",
+  split: "Quyết định chia tiền (mô phỏng)",
 };
 
 const STEP = 4 * 60 * 1000; // mỗi hành động demo cách nhau ~4 phút
@@ -309,6 +313,27 @@ export function reducer(state: AppState, action: Action): AppState {
       };
     }
 
+    case "MARK_UNREAD": {
+      const conv = state.conversations[action.chatId];
+      if (!conv) return state;
+      return { ...state, conversations: { ...state.conversations, [conv.id]: { ...conv, unread: Math.max(1, conv.unread) } } };
+    }
+
+    case "RECALL_MESSAGE": {
+      // Chỉ người gửi thu hồi được tin văn bản/tệp của chính mình; bản trong Lưu trữ không bị xóa.
+      const list = state.messages[action.chatId];
+      const target = list?.find((m) => m.id === action.messageId);
+      if (!target || !canRecall(state, target)) return state;
+      const s = tick(state);
+      return {
+        ...s,
+        messages: {
+          ...s.messages,
+          [action.chatId]: list.map((m) => (m.id === action.messageId ? { ...m, recalledAt: s.clock } : m)),
+        },
+      };
+    }
+
     case "TOGGLE_MUTE": {
       const conv = state.conversations[action.chatId];
       if (!conv) return state;
@@ -352,9 +377,12 @@ export function reducer(state: AppState, action: Action): AppState {
     }
 
     case "CREATE_WORKSPACE": {
-      const s = tick(state);
+      // Workspace thật từ Nova: mọi mốc mở đầu dùng đúng thời điểm chấp nhận đề xuất, không dùng đồng hồ demo.
+      const fromAcceptedNova = !!action.agreement;
+      const s = fromAcceptedNova ? { ...state, clock: action.agreement!.acceptedAt } : tick(state);
       const chatId = wsChatId(action.wsId);
       const business = s.users[action.businessId];
+      const freelancer = s.users[action.freelancerId];
       const milestones: Milestone[] = action.draft.map((d) => ({
         ...d,
         status: "awaiting_funding",
@@ -370,7 +398,8 @@ export function reducer(state: AppState, action: Action): AppState {
         businessId: action.businessId,
         freelancerId: action.freelancerId,
         feeTier: action.feeTier,
-        termsLockedAt: null,
+        // Đề xuất đã được freelancer chấp nhận trên Nova: thỏa thuận đã khóa với cả hai bên từ lúc đó.
+        termsLockedAt: fromAcceptedNova ? s.clock : null,
         milestones,
         attachments: [],
         submissions: [],
@@ -381,7 +410,7 @@ export function reducer(state: AppState, action: Action): AppState {
         id: chatId,
         kind: "replyn",
         title: action.title,
-        subtitle: `${business.name} · ${s.users[action.freelancerId].name}`,
+        subtitle: `${business.name} · ${freelancer.name}`,
         avatar: { initials: initials(action.title), bg: "#233138", fg: "#e9edef" },
         memberIds: [action.businessId, action.freelancerId],
         unread: action.unread ?? 0,
@@ -412,11 +441,33 @@ export function reducer(state: AppState, action: Action): AppState {
         type: "workspace_created",
         actorId: SYSTEM_ID,
         title: "Workspace được tạo",
-        description: action.agreement || action.fromNova
-          ? `Từ đề xuất đã được chấp nhận trên Nova · ${milestones.length} giai đoạn, chờ hai bên xác nhận thỏa thuận`
-          : `${milestones.length} giai đoạn, chờ hai bên xác nhận thỏa thuận`,
+        description: fromAcceptedNova
+          ? `Từ đề xuất đã được chấp nhận trên Nova · ${milestones.length} giai đoạn`
+          : action.fromNova
+            ? `Từ đề xuất đã được chấp nhận trên Nova · ${milestones.length} giai đoạn, chờ hai bên xác nhận thỏa thuận`
+            : `${milestones.length} giai đoạn, chờ hai bên xác nhận thỏa thuận`,
         messageId: s3.messages[chatId][0].id,
       });
+      if (fromAcceptedNova) {
+        const lockText = `Thỏa thuận đã khóa khi ${freelancer.name} chấp nhận đề xuất trên Nova`;
+        let lockMsg: Message;
+        [s3, lockMsg] = pushMessage(s3, {
+          chatId,
+          senderId: SYSTEM_ID,
+          kind: "system",
+          text: lockText,
+          link: "terms",
+          refs: { workspaceId: action.wsId },
+        });
+        const total = milestones.reduce((a, m) => a + m.amount, 0);
+        [s3] = addEvidence(s3, action.wsId, {
+          type: "terms_locked",
+          actorId: SYSTEM_ID,
+          title: "Thỏa thuận đã khóa trên Nova",
+          description: `${lockText} · ${milestones.length} giai đoạn · tổng ${total.toLocaleString("en-US")} USDC (mô phỏng). Không thể sửa đơn phương.`,
+          messageId: lockMsg.id,
+        });
+      }
       for (const [i, m] of milestones.entries()) {
         [s3] = pushMessage(s3, {
           chatId,
@@ -444,6 +495,7 @@ export function reducer(state: AppState, action: Action): AppState {
           [NOVA_ME]: { id: NOVA_ME, name: action.viewer.name, short: shortName(action.viewer.name), title: role === "business" ? "Doanh nghiệp · Nova" : "Freelancer · Nova", color: "#FFD33D" },
         },
       };
+      const added: { chatId: string; at: number }[] = [];
       for (const w of action.workspaces) {
         const wsId = novaWsId(w.workspaceId);
         // Đã có trong tab này: giữ tiến độ mô phỏng, không dựng lại.
@@ -509,11 +561,20 @@ export function reducer(state: AppState, action: Action): AppState {
               startDate: w.startDate,
               deadline: w.deadline,
               acceptedAt: Number.isFinite(acceptedAt) ? acceptedAt : s.clock,
+              ...(w.novaReturnUrl ? { novaReturnUrl: w.novaReturnUrl } : {}),
             },
           },
         );
+        added.push({ chatId: sourceChatId, at: Number.isFinite(acceptedAt) ? acceptedAt : 0 });
       }
-      return { ...s, clock: Math.max(state.clock, s.clock) };
+      // Mỗi workspace thật có đúng một mục ở chat list: hội thoại Nova (chỉ xem) đã dẫn tới nó; mục workspace
+      // (có sourceNovaChatId) được ChatList gộp vào mục này. Mới chấp nhận gần nhất lên đầu.
+      const newIds = added.sort((a, b) => b.at - a.at).map((x) => x.chatId);
+      return {
+        ...s,
+        order: [...newIds, ...s.order.filter((id) => !newIds.includes(id))],
+        clock: Math.max(state.clock, s.clock),
+      };
     }
 
     case "LOCK_TERMS": {
@@ -816,11 +877,25 @@ export function reducer(state: AppState, action: Action): AppState {
 
 /* ---------- selectors ---------- */
 
+/** Tin văn bản hoặc tệp của chính mình trong hội thoại workspace, chưa thu hồi. */
+export function canRecall(s: AppState, m: Message): boolean {
+  const conv = s.conversations[m.chatId];
+  return !m.recalledAt && (m.kind === "text" || m.kind === "file") && m.senderId === me(s) && conv?.kind === "replyn";
+}
+
 export function visibleTo(s: AppState, chatId: string): boolean {
   const c = s.conversations[chatId];
   if (!c) return false;
   if (c.kind === "group" || c.kind === "channel") return true;
   return c.memberIds.includes(me(s));
+}
+
+/** id workspace Nova (id mờ do Nova cấp) của cuộc trò chuyện đang mở, nếu đó là workspace thật (không phải dữ liệu mẫu). */
+export function activeNovaWorkspace(s: AppState): string | null {
+  const conv = s.ui.activeChatId ? s.conversations[s.ui.activeChatId] : undefined;
+  if (!conv) return null;
+  const wsId = conv.workspaceId ?? (conv.linkedWorkspaceChatId ? s.conversations[conv.linkedWorkspaceChatId]?.workspaceId : undefined);
+  return (wsId && s.workspaces[wsId]?.agreement?.novaWorkspaceId) || null;
 }
 
 /** "Lê Minh Khoa" -> "Minh Khoa" */

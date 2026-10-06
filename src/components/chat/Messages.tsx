@@ -1,10 +1,10 @@
 "use client";
 
-import { CheckCheck, Lock, ShieldCheck } from "lucide-react";
-import { Fragment } from "react";
+import { CheckCheck, Lock, ShieldCheck, Undo2 } from "lucide-react";
+import { Fragment, useState } from "react";
 import { dayKey, dayLabel, hhmm } from "@/lib/format";
 import { noticeText, previewOf } from "@/lib/preview";
-import { findAttachment, initials, NOVA_TEAM_ID, SYSTEM_ID, type PanelTab } from "@/lib/reducer";
+import { canRecall, findAttachment, initials, NOVA_TEAM_ID, SYSTEM_ID, type PanelTab } from "@/lib/reducer";
 import { jumpToMessage, useMe, useStore } from "@/lib/store";
 import type { Conversation, Message } from "@/lib/types";
 import { FilePreview } from "../FileCard";
@@ -15,6 +15,7 @@ const NOTICE_KINDS = ["system", "milestone", "payment", "dispute", "decision"];
 const isNotice = (m: Message) => NOTICE_KINDS.includes(m.kind) || m.senderId === SYSTEM_ID || m.senderId === NOVA_TEAM_ID;
 
 const LINK_LABEL: Record<PanelTab, string> = {
+  archive: "Xem lưu trữ",
   terms: "Xem điều khoản",
   milestones: "Xem tiến độ",
   files: "Xem file",
@@ -67,6 +68,7 @@ function MessageRow({
   const flash = state.ui.flashId === m.id;
 
   if (isNotice(m)) return <Notice m={m} flash={flash} />;
+  if (m.recalledAt) return <RecalledLine m={m} flash={flash} />;
 
   const out = m.senderId === meId;
   const sender = state.users[m.senderId];
@@ -75,13 +77,14 @@ function MessageRow({
   const bubble = (
     <div
       id={`msg-${m.id}`}
-      className={cx("msg-in flex items-end gap-2", out ? "justify-end" : "justify-start", first && "mt-1.5")}
+      className={cx("group msg-in flex items-end gap-2", out ? "justify-end" : "justify-start", first && "mt-1.5")}
     >
       {!out && showAvatars && (
         <div className="w-8 shrink-0">
           {last && sender && <Avatar initials={initials(sender.name)} bg="#233138" fg={sender.color} size={32} />}
         </div>
       )}
+      {out && canRecall(state, m) && <RecallButton m={m} />}
       <div
         className={cx(
           "relative max-w-[min(540px,82%)] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[15px] leading-[1.4] shadow-[0_1px_0.5px_rgb(0_0_0/0.35)]",
@@ -112,6 +115,56 @@ function MessageRow({
     );
   }
   return bubble;
+}
+
+/** Trong chat chỉ còn một dòng; nội dung gốc nằm trong tab Lưu trữ. */
+function RecalledLine({ m, flash }: { m: Message; flash: boolean }) {
+  const { state } = useStore();
+  const meId = useMe();
+  const who = m.senderId === meId ? "Bạn" : state.users[m.senderId]?.name ?? "Người gửi";
+  return (
+    <div id={`msg-${m.id}`} className="my-1 flex justify-center">
+      <p className={cx("inline-flex items-center gap-1.5 rounded-lg bg-notice/95 px-3 py-1 text-[13px] italic text-ink-2", flash && "flash")}>
+        <Undo2 size={13} className="shrink-0" aria-hidden />
+        {who} đã thu hồi một tin nhắn · {hhmm(m.recalledAt!)}
+      </p>
+    </div>
+  );
+}
+
+/** Thu hồi tin của chính mình: xác nhận ngay tại chỗ, báo rõ bản lưu vẫn còn. */
+function RecallButton({ m }: { m: Message }) {
+  const { dispatch } = useStore();
+  const [confirm, setConfirm] = useState(false);
+  if (confirm) {
+    return (
+      <div role="alertdialog" aria-label="Thu hồi tin nhắn" className="msg-in mb-1 max-w-[260px] rounded-lg bg-panel p-2.5 text-[12px] text-ink-2 shadow-xl ring-1 ring-line">
+        <p>Tin nhắn sẽ ẩn khỏi cuộc trò chuyện với cả hai bên nhưng vẫn được giữ trong Lưu trữ để đối chiếu.</p>
+        <div className="mt-2 flex justify-end gap-2">
+          <button type="button" onClick={() => setConfirm(false)} className="rounded-md px-2.5 py-1 hover:bg-white/8">Hủy</button>
+          <button
+            type="button"
+            autoFocus
+            onClick={() => dispatch({ type: "RECALL_MESSAGE", chatId: m.chatId, messageId: m.id })}
+            className="rounded-md bg-danger/15 px-2.5 py-1 font-medium text-danger hover:bg-danger/25"
+          >
+            Thu hồi
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      aria-label="Thu hồi tin nhắn"
+      title="Thu hồi tin nhắn"
+      onClick={() => setConfirm(true)}
+      className="mb-1 grid size-8 shrink-0 place-items-center rounded-full text-ink-2 opacity-60 hover:bg-white/8 hover:text-ink focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+    >
+      <Undo2 size={16} />
+    </button>
+  );
 }
 
 function Meta({ at, out }: { at: number; out: boolean }) {

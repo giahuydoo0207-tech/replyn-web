@@ -40,9 +40,17 @@ export function TermsTab({ ws }: { ws: Workspace }) {
       <section className="rounded-xl bg-panel p-4">
         <div className="flex items-center gap-2">
           {locked ? <Lock size={16} className="text-ink-2" /> : <LockOpen size={16} className="text-amber" />}
-          <h3 className="text-[15px] font-semibold">{locked ? "Thỏa thuận đã xác nhận" : "Thỏa thuận chưa xác nhận"}</h3>
+          <h3 className="text-[15px] font-semibold">
+            {agreement ? "Thỏa thuận đã khóa" : locked ? "Thỏa thuận đã xác nhận" : "Thỏa thuận chưa xác nhận"}
+          </h3>
         </div>
-        {locked ? (
+        {agreement ? (
+          // Đề xuất đã được chấp nhận trên Nova: thỏa thuận khóa từ lúc đó cho cả hai bên, không cần xác nhận lại.
+          <p className="mt-1 text-[13px] text-ink-2">
+            Đã khóa khi {fl.name} chấp nhận đề xuất trên Nova · {ddmmyyyy(agreement.acceptedAt)} {hhmm(agreement.acceptedAt)}
+            <span className="block text-muted">Không thể sửa đơn phương.</span>
+          </p>
+        ) : locked ? (
           <p className="mt-1 text-[13px] text-ink-2">
             Hai bên đã xác nhận. Không thể sửa đơn phương.
             <span className="block text-muted">

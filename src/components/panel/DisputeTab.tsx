@@ -117,7 +117,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
       {resolved && ms.payout ? (
         <section className="rounded-xl bg-panel p-4">
           <h4 className="flex items-center gap-2 font-semibold">
-            <Gavel size={17} /> Quyết định của Đội ngũ Nova
+            <Gavel size={17} /> Quyết định của Đội ngũ Nova (mô phỏng)
           </h4>
           <PayoutRows ws={ws} ms={ms} gross={ms.payout.freelancerGross} tier={ws.feeTier} />
         </section>
@@ -129,7 +129,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
           </div>
           <p className="mt-1 text-[13px] text-ink-2">Bản demo cho phép trình diễn quyết định Release / Refund / Split.</p>
 
-          <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-rail p-1" role="radiogroup" aria-label="Loại quyết định">
+          <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-rail p-1" role="radiogroup" aria-label="Loại quyết định (mô phỏng)">
             {[
               { label: "Giải ngân", v: ms.amount },
               { label: "Hoàn tiền", v: 0 },
@@ -149,13 +149,14 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
                   )}
                 >
                   {o.label}
+                  <span className="sr-only"> (mô phỏng)</span>
                 </button>
               );
             })}
           </div>
 
           <label className="mt-4 block text-[13px] text-ink-2" htmlFor={`split-${d.id}`}>
-            Phần freelancer: <b className="text-ink">{usdc(gross)}</b> · Business: <b className="text-ink">{usdc(ms.amount - gross)}</b>
+            Phần freelancer: <b className="text-ink">{usdc(gross)}</b> · Business: <b className="text-ink">{usdc(ms.amount - gross)}</b> (mô phỏng)
           </label>
           <input
             id={`split-${d.id}`}
@@ -181,7 +182,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
                 className="flex-1"
                 onClick={() => dispatch({ type: "RESOLVE", wsId: ws.id, disputeId: d.id, freelancerGross: gross })}
               >
-                <Gavel size={16} /> Ra quyết định
+                <Gavel size={16} /> Ra quyết định (mô phỏng)
               </Button>
             )}
           </div>
@@ -199,9 +200,9 @@ function PayoutRows({ ws, ms, gross, tier }: { ws: Workspace; ms: Milestone; gro
     <dl className="mt-3 space-y-1.5 rounded-lg bg-white/[0.04] p-3 text-[14px]">
       <Line k="Giá trị giai đoạn" v={usdc(ms.amount)} />
       <Line k={FEE_LABEL[ws.feeTier]} v={`− ${usdc(p.fee)}`} />
-      <Line k="Freelancer nhận dự kiến" v={usdc(p.freelancerNet)} strong />
-      <Line k="Business hoàn dự kiến" v={usdc(p.businessRefund)} strong />
-      <Line k="Phí vận hành dự kiến" v={usdc(p.fee)} />
+      <Line k="Freelancer nhận dự kiến (mô phỏng)" v={usdc(p.freelancerNet)} strong />
+      <Line k="Business hoàn dự kiến (mô phỏng)" v={usdc(p.businessRefund)} strong />
+      <Line k="Phí vận hành dự kiến (mô phỏng)" v={usdc(p.fee)} />
     </dl>
   );
 }
@@ -248,13 +249,13 @@ function FeeTable({ ws, ms, gross }: { ws: Workspace; ms: Milestone; gross: numb
               </p>
               <p className="text-[11px] leading-tight text-muted">{FEE_LABEL[t]}</p>
               <dl className="mt-2 space-y-0.5 text-[12px]">
-                <p className="text-[11px] font-semibold uppercase text-muted">Giải ngân toàn bộ</p>
+                <p className="text-[11px] font-semibold uppercase text-muted">Giải ngân toàn bộ (mô phỏng)</p>
                 <Line k="Fee" v={usdc(full.fee)} />
                 <Line k="Freelancer" v={usdc(full.freelancerNet)} strong />
                 {isSplit && (
                   <>
                     <p className="pt-1.5 text-[11px] font-semibold uppercase text-muted">
-                      Chia {part.freelancerGross}/{part.businessRefund}
+                      Chia {part.freelancerGross}/{part.businessRefund} (mô phỏng)
                     </p>
                     <Line k="Fee" v={usdc(part.fee)} />
                     <Line k="Freelancer" v={usdc(part.freelancerNet)} strong />
