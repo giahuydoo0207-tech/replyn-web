@@ -3,6 +3,7 @@
 import {
   Briefcase,
   Clapperboard,
+  FastForward,
   Files,
   ListTodo,
   Menu,
@@ -11,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ddmmyyyy, hhmm } from "@/lib/format";
 import { initials, visibleTo } from "@/lib/reducer";
 import { buildScene, initialState, SCENES } from "@/lib/seed";
 import { useNovaSession, useMe, useStore } from "@/lib/store";
@@ -300,6 +302,30 @@ function DemoMenu({
           );
         })}
       </div>
+
+      <p className="mt-4 flex items-baseline justify-between px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+        Tua thời gian
+        <span className="font-normal normal-case tabular-nums tracking-normal">
+          Bây giờ: {hhmm(state.clock)}, {ddmmyyyy(state.clock)}
+        </span>
+      </p>
+      <div className="mt-1.5 grid grid-cols-3 gap-1">
+        {[
+          { label: "+1 giờ", ms: 3_600_000 },
+          { label: "+1 ngày", ms: 86_400_000 },
+          { label: "+3 ngày", ms: 3 * 86_400_000 },
+        ].map((t) => (
+          <button
+            key={t.label}
+            type="button"
+            onClick={() => dispatch({ type: "ADVANCE_CLOCK", ms: t.ms })}
+            className="inline-flex items-center justify-center gap-1 rounded-lg bg-rail px-2 py-2 text-sm text-ink-2 hover:bg-white/6 hover:text-ink active:scale-[0.98]"
+          >
+            <FastForward size={13} /> {t.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1 px-1 text-[11px] text-muted">Replyn tự nhắc hạn trong chat khi tới mốc.</p>
 
       <p className="mt-4 px-1 text-xs font-semibold uppercase tracking-wide text-muted">Nhảy tới cảnh demo</p>
       <ol className="mt-1.5 space-y-0.5">
