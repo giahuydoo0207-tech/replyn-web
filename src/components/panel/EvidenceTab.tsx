@@ -1,17 +1,6 @@
 "use client";
 
-import {
-  AlertTriangle,
-  BadgeCheck,
-  Banknote,
-  FilePlus2,
-  FileUp,
-  Gavel,
-  Lock,
-  PencilLine,
-  RefreshCw,
-  Search,
-} from "lucide-react";
+import { AlertTriangle, BadgeCheck, Banknote, FilePen, FilePlus2, FileUp, Gavel, Lock, PencilLine, RefreshCw, Search } from "lucide-react";
 import type { ComponentType } from "react";
 import { ddmmyyyy, hhmm, shortHash } from "@/lib/format";
 import { NOVA_TEAM_ID, SYSTEM_ID } from "@/lib/reducer";
@@ -29,6 +18,7 @@ const ICON: Record<EvidenceType, ComponentType<{ size?: number }>> = {
   accepted: BadgeCheck,
   dispute_opened: AlertTriangle,
   nova_review: Search,
+  scope_changed: FilePen,
   decision: Gavel,
   released: Banknote,
 };

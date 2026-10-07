@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, LifeBuoy, RefreshCw, SearchCheck } from "lucide-react";
+import { Download, LifeBuoy, LoaderCircle, RefreshCw, SearchCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ddmmyyyy, hhmm } from "@/lib/format";
 import { AGREEMENT_FORMAT, type AgreementFile } from "@/lib/seal/agreement";
@@ -75,19 +75,95 @@ const timeOf = (iso: string | null) => {
   return Number.isFinite(ms) ? `${hhmm(ms)}, ${ddmmyyyy(ms)}` : null;
 };
 
-function downloadAgreement(view: Extract<SealView, { status: "sealed" | "mismatch" }>) {
-  const file: AgreementFile = {
-    format: AGREEMENT_FORMAT,
-    agreement: view.agreement,
-    seal: { signature: view.signature, cluster: view.cluster, hash: view.sealedHash },
-  };
-  const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }));
+type SealedView = Extract<SealView, { status: "sealed" | "mismatch" }>;
+
+const fileOf = (view: SealedView): AgreementFile => ({
+  format: AGREEMENT_FORMAT,
+  agreement: view.agreement,
+  seal: { signature: view.signature, cluster: view.cluster, hash: view.sealedHash },
+});
+
+/** Tên file không dấu, dễ gửi qua email/Zalo: "Thoa-thuan-Landing-Page-Moc-Coffee". */
+const slug = (name: string) =>
+  name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D")
+    .replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "thoa-thuan";
+
+function save(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `thoa-thuan-replyn-${view.agreement.workspaceId.slice(0, 8)}.json`;
+  link.download = name;
   link.click();
   // Một số trình duyệt còn đang tải khi click() trả về; thu hồi sau một nhịp.
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** File kỹ thuật cho dev hoặc bên Nova cần đối chiếu: đúng dữ liệu gốc dạng JSON. */
+function downloadRaw(view: SealedView) {
+  save(new Blob([JSON.stringify(fileOf(view), null, 2)], { type: "application/json" }), `thoa-thuan-replyn-${view.agreement.workspaceId.slice(0, 8)}.json`);
+}
+
+/** Bản cho người đọc: PDF trình bày đẹp, có kèm dữ liệu gốc bên trong để trang Kiểm chứng đọc được. */
+type PdfLocale = "vi" | "en";
+
+async function downloadPdf(view: SealedView, locale: PdfLocale) {
+  const [{ buildAgreementPdf }, regular, semibold] = await Promise.all([
+    import("@/lib/seal/pdf"),
+    fetch("/fonts/BeVietnamPro-Regular.ttf").then((r) => r.arrayBuffer()),
+    fetch("/fonts/BeVietnamPro-SemiBold.ttf").then((r) => r.arrayBuffer()),
+  ]);
+  const bytes = await buildAgreementPdf(fileOf(view), { regular, semibold }, {
+    locale,
+    sealedAt: view.sealedAt,
+    verifyUrl: `${window.location.origin}/verify`,
+  });
+  const name = `${locale === "en" ? "Agreement" : "Thoa-thuan"}-${slug(view.agreement.projectName)}.pdf`;
+  save(new Blob([bytes as BlobPart], { type: "application/pdf" }), name);
+}
+
+const LOCALES: { id: PdfLocale; label: string }[] = [
+  { id: "vi", label: "Tiếng Việt" },
+  { id: "en", label: "English" },
+];
+
+/** Nút tải PDF kèm chọn ngôn ngữ: chỉ nhãn được dịch, nội dung hai bên nhập giữ nguyên văn. */
+function PdfButton({ view }: { view: SealedView }) {
+  const [state, setState] = useState<"idle" | "busy" | "failed">("idle");
+  const [locale, setLocale] = useState<PdfLocale>("vi");
+  return (
+    <span className="inline-flex flex-col">
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <Button
+          disabled={state === "busy"}
+          onClick={() => {
+            setState("busy");
+            downloadPdf(view, locale).then(() => setState("idle"), () => setState("failed"));
+          }}
+        >
+          {state === "busy" ? <LoaderCircle size={15} className="animate-spin" /> : <Download size={15} />}
+          {state === "busy" ? "Đang tạo file PDF" : "Tải bản thỏa thuận (PDF)"}
+        </Button>
+        <span role="group" aria-label="Ngôn ngữ của file PDF" className="inline-flex rounded-lg bg-white/6 p-0.5">
+          {LOCALES.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              aria-pressed={locale === l.id}
+              onClick={() => setLocale(l.id)}
+              className={
+                locale === l.id
+                  ? "rounded-md bg-white/12 px-2.5 py-1 text-[12px] font-medium text-ink"
+                  : "rounded-md px-2.5 py-1 text-[12px] text-ink-2 hover:text-ink"
+              }
+            >
+              {l.label}
+            </button>
+          ))}
+        </span>
+      </span>
+      {state === "failed" && <span role="alert" className="mt-1 text-[12px] text-danger">Chưa tạo được file. Thử lại sau ít giây.</span>}
+    </span>
+  );
 }
 
 /** Phần hiển thị, tách riêng để xem trước đủ các trạng thái. */
@@ -168,7 +244,7 @@ export function SealCardView({ phase, onRetry, onSupport }: { phase: SealPhase; 
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button onClick={() => downloadAgreement(view)}><Download size={15} /> Tải bản thỏa thuận</Button>
+        <PdfButton view={view} />
         <a
           href="/verify"
           target="_blank"
@@ -178,7 +254,7 @@ export function SealCardView({ phase, onRetry, onSupport }: { phase: SealPhase; 
           <SearchCheck size={15} /> Kiểm chứng một bản thỏa thuận
         </a>
       </div>
-      <TechDetails signature={view.signature} explorerUrl={view.explorerUrl} fingerprint={view.hash} />
+      <TechDetails signature={view.signature} explorerUrl={view.explorerUrl} fingerprint={view.hash} onDownloadRaw={() => downloadRaw(view)} />
     </section>
   );
 }

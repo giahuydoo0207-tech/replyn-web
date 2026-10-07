@@ -7,6 +7,7 @@ import { ddmmyyyy, hhmm } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import type { Dispute, FeeTier, Milestone, Workspace } from "@/lib/types";
 import { FileCard } from "../FileCard";
+import { DisputePackCard } from "./DisputePack";
 import { Badge, Button, cx, StatusBadge } from "../ui";
 
 export function DisputeTab({ ws }: { ws: Workspace }) {
@@ -21,6 +22,7 @@ export function DisputeTab({ ws }: { ws: Workspace }) {
             bổ sung thông tin trước khi Đội ngũ Nova đề xuất phương án xử lý.
           </p>
         </div>
+        <DisputePackCard ws={ws} />
         <FeeTable ws={ws} ms={ws.milestones[0]} gross={600} />
       </div>
     );
@@ -30,6 +32,7 @@ export function DisputeTab({ ws }: { ws: Workspace }) {
       {[...ws.disputes].reverse().map((d) => (
         <DisputeCard key={d.id} ws={ws} d={d} />
       ))}
+      <DisputePackCard ws={ws} />
     </div>
   );
 }

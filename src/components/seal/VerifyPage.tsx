@@ -19,18 +19,30 @@ export type VerifyState =
   | { kind: "not_found"; fileName: string; agreement: CanonicalAgreement; hash: string }
   | { kind: "match" | "modified"; fileName: string; agreement: CanonicalAgreement; hash: string; seal: Extract<VerifyView, { found: true }> };
 
-const MAX_FILE_BYTES = 256 * 1024;
+const MAX_JSON_BYTES = 256 * 1024;
+const MAX_PDF_BYTES = 5 * 1024 * 1024;
 
 const timeOf = (iso: string | null) => {
   const ms = iso ? Date.parse(iso) : NaN;
   return Number.isFinite(ms) ? `${hhmm(ms)}, ${ddmmyyyy(ms)}` : null;
 };
 
-/** Đọc file người dùng thả vào: chấp nhận file tải từ Replyn (có `agreement`) hoặc chính bản thỏa thuận. */
+/**
+ * Đọc file người dùng thả vào: bản PDF tải từ Replyn (đọc dữ liệu gốc đính kèm bên trong), file JSON tải từ Replyn
+ * (có `agreement`) hoặc chính bản thỏa thuận. Mọi thứ diễn ra trên máy người dùng.
+ */
 async function readAgreement(file: File): Promise<CanonicalAgreement | null> {
-  if (file.size > MAX_FILE_BYTES) return null;
   try {
-    const raw: unknown = JSON.parse(await file.text());
+    const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+    let raw: unknown;
+    if (head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46) {
+      if (file.size > MAX_PDF_BYTES) return null;
+      const { readAgreementFromPdf } = await import("@/lib/seal/pdf");
+      raw = await readAgreementFromPdf(await file.arrayBuffer());
+    } else {
+      if (file.size > MAX_JSON_BYTES) return null;
+      raw = JSON.parse(await file.text());
+    }
     const inner = raw && typeof raw === "object" && "agreement" in raw ? (raw as { agreement: unknown }).agreement : raw;
     return canonicalAgreement(inner);
   } catch {
@@ -98,7 +110,7 @@ export function VerifyPageView({
             Thỏa thuận này có đúng bản gốc không?
           </h1>
           <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-ink-2">
-            Thả file thỏa thuận tải từ Replyn. Nội dung không rời máy bạn, chỉ dấu vân tay được đem đối chiếu.
+            Thả file PDF thỏa thuận tải từ Replyn. Nội dung không rời máy bạn, chỉ dấu vân tay được đem đối chiếu.
           </p>
         </section>
 
@@ -109,8 +121,8 @@ export function VerifyPageView({
         <section aria-label="Cách kiểm tra" className="max-w-[460px] lg:col-start-1 lg:row-start-2">
           <ol className="space-y-5 lg:mt-1">
             {[
-              ["Lấy file", "Trong workspace, mở tab Thỏa thuận và bấm Tải bản thỏa thuận."],
-              ["Thả vào ô kiểm tra", "Kéo file vào, hoặc bấm để chọn file .json trên máy."],
+              ["Lấy file", "Trong workspace, mở tab Thỏa thuận và bấm Tải bản thỏa thuận (PDF)."],
+              ["Thả vào ô kiểm tra", "Kéo file PDF vào, hoặc bấm để chọn file trên máy."],
               ["Đọc kết quả", "Xanh là đúng bản gốc, đỏ là file đã bị sửa, vàng là chưa tìm thấy niêm phong."],
             ].map(([title, body], i) => (
               <li key={title} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3">
@@ -161,14 +173,14 @@ function DropZone({ onFile }: { onFile: (file: File) => void }) {
           {over ? "Thả file để kiểm tra" : <><span className="md:hidden">Chọn file thỏa thuận</span><span className="hidden md:inline">Kéo file thỏa thuận vào đây</span></>}
         </span>
         <span className="mt-1.5 text-[14px] text-muted">
-          <span className="md:hidden">File .json tải từ Replyn</span><span className="hidden md:inline">hoặc bấm để chọn file .json</span>
+          <span className="md:hidden">File PDF tải từ Replyn</span><span className="hidden md:inline">hoặc bấm để chọn file PDF</span>
         </span>
       </button>
       {/* Ô chọn file nằm ngoài nút: thẻ <input> không được lồng trong <button>. */}
       <input
         ref={input}
         type="file"
-        accept="application/json,.json"
+        accept="application/pdf,.pdf,application/json,.json"
         className="sr-only"
         tabIndex={-1}
         aria-hidden
@@ -213,7 +225,7 @@ function Result({ state, onReset, onRetry }: { state: Exclude<VerifyState, { kin
             <h2 className="text-[19px] font-semibold">{invalid ? "Không đọc được file này" : "Chưa kiểm tra được"}</h2>
             <p className="mt-1 text-[14px] leading-relaxed text-ink-2">
               {invalid
-                ? "Hãy chọn đúng file .json tải từ tab Thỏa thuận trong Replyn."
+                ? "Hãy chọn đúng file PDF tải từ tab Thỏa thuận trong Replyn."
                 : "Không kết nối được nơi lưu niêm phong. Thử lại sau ít phút."}
             </p>
           </div>
@@ -261,6 +273,22 @@ function Result({ state, onReset, onRetry }: { state: Exclude<VerifyState, { kin
           <Fact k="Tổng ngân sách" v={usdc(agreement.totalAmount)} />
           <Fact k="Chấp nhận lúc" v={timeOf(agreement.acceptedAt) ?? "—"} />
         </dl>
+        {state.kind === "match" && agreement.milestones.length > 0 && (
+          <>
+            <p className="mt-4 text-[12px] text-muted">Các giai đoạn</p>
+            <ol className="mt-1.5 divide-y divide-white/8 text-[14px]">
+              {agreement.milestones.map((m, i) => (
+                <li key={i} className="flex items-baseline justify-between gap-4 py-1.5">
+                  <span className="min-w-0 break-words">{m.title}</span>
+                  <span className="shrink-0 tabular-nums text-ink-2">{usdc(m.amount)}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-3 text-[12px] leading-relaxed text-muted">
+              Đây là nội dung gốc đã niêm phong. Nếu trang PDF bạn đang xem ghi khác, hãy tin nội dung ở đây.
+            </p>
+          </>
+        )}
       </div>
 
       {state.kind !== "not_found" && (

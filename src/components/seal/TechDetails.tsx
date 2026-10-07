@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Copy, ExternalLink } from "lucide-react";
+import { Check, ChevronDown, Copy, Download, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { cx } from "../ui";
 
@@ -9,7 +9,18 @@ const short = (value: string, head = 8, tail = 6) => (value.length > head + tail
 /**
  * Phần kỹ thuật của niêm phong, gập sẵn: người dùng thường không cần đọc, người muốn tự kiểm tra thì mở ra.
  */
-export function TechDetails({ signature, explorerUrl, fingerprint }: { signature?: string; explorerUrl?: string; fingerprint: string }) {
+export function TechDetails({
+  signature,
+  explorerUrl,
+  fingerprint,
+  onDownloadRaw,
+}: {
+  signature?: string;
+  explorerUrl?: string;
+  fingerprint: string;
+  /** Tải dữ liệu gốc dạng JSON, cho dev hoặc bên Nova cần đối chiếu. */
+  onDownloadRaw?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div className="mt-4 border-t border-white/8 pt-3">
@@ -39,6 +50,13 @@ export function TechDetails({ signature, explorerUrl, fingerprint }: { signature
             <span className="font-mono text-[12px]" title={fingerprint}>{short(fingerprint)}</span>
             <CopyButton value={fingerprint} />
           </Row>
+          {onDownloadRaw && (
+            <Row label="File kỹ thuật">
+              <button type="button" onClick={onDownloadRaw} className="inline-flex items-center gap-1 text-link hover:underline">
+                <Download size={12} /> Tải dữ liệu gốc (JSON)
+              </button>
+            </Row>
+          )}
           <p className="text-[12px] leading-relaxed text-muted">
             Dấu vân tay là mã SHA-256 tính từ toàn bộ điều khoản. Chỉ mã này được ghi lên chuỗi, nội dung thỏa thuận thì không.
           </p>
