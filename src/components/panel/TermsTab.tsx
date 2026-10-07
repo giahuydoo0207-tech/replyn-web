@@ -7,6 +7,8 @@ import { useStore } from "@/lib/store";
 import type { Workspace } from "@/lib/types";
 import { Button } from "../ui";
 import { SealCard } from "./SealCard";
+import { VersionPanel } from "./ScopeChange";
+import { currentVersion } from "@/lib/scopeChange";
 
 export function TermsTab({ ws }: { ws: Workspace }) {
   const { state, dispatch } = useStore();
@@ -16,8 +18,11 @@ export function TermsTab({ ws }: { ws: Workspace }) {
 
   const agreement = ws.agreement;
 
+  const version = currentVersion(ws);
+
   return (
     <div className="space-y-4">
+      <VersionPanel ws={ws} />
       {agreement && (
         <section className="rounded-xl bg-panel p-4" aria-label="Thỏa thuận từ Nova">
           <div className="flex items-center gap-2">
@@ -27,6 +32,11 @@ export function TermsTab({ ws }: { ws: Workspace }) {
           <p className="mt-1 text-[13px] text-ink-2">
             {biz.name} gửi đề xuất trên Nova, {fl.name} chấp nhận ngày {ddmmyyyy(agreement.acceptedAt)}. Replyn thực hiện đúng thỏa thuận này.
           </p>
+          {version > 1 && (
+            <p className="mt-2 rounded-lg bg-yellow/[0.07] px-3 py-2 text-[13px] text-ink-2 ring-1 ring-yellow/20">
+              Đây là bản gốc (phiên bản 1). Các giai đoạn bên dưới đã được cập nhật theo phiên bản {version}.
+            </p>
+          )}
           <p className="mt-3 whitespace-pre-wrap text-[14px]">{agreement.scope}</p>
           <dl className="mt-3 grid grid-cols-3 gap-2 text-[13px]">
             <Stat k="Tổng ngân sách" v={usdc(agreement.totalAmount)} />

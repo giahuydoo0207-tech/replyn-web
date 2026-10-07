@@ -1,13 +1,15 @@
 "use client";
 
-import { CheckCheck, Lock, ShieldCheck, Undo2 } from "lucide-react";
+import { CheckCheck, Lock, Pin, PinOff, ShieldCheck, Undo2 } from "lucide-react";
 import { Fragment, useState } from "react";
 import { dayKey, dayLabel, hhmm } from "@/lib/format";
 import { noticeText, previewOf } from "@/lib/preview";
-import { canRecall, findAttachment, initials, NOVA_TEAM_ID, SYSTEM_ID, type PanelTab } from "@/lib/reducer";
+import { canPin, canRecall, findAttachment, keepsRecalled, initials, NOVA_TEAM_ID, SYSTEM_ID, type PanelTab } from "@/lib/reducer";
 import { jumpToMessage, useMe, useStore } from "@/lib/store";
 import type { Conversation, Message } from "@/lib/types";
 import { FilePreview } from "../FileCard";
+import { LinkedText } from "../LinkedText";
+import { ChangeCard } from "../panel/ScopeChange";
 import { Avatar, cx } from "../ui";
 
 const GROUP_GAP = 5 * 60 * 1000;
@@ -68,6 +70,7 @@ function MessageRow({
   const flash = state.ui.flashId === m.id;
 
   if (isNotice(m)) return <Notice m={m} flash={flash} />;
+  if (m.kind === "change") return <ChangeInChat m={m} flash={flash} />;
   if (m.recalledAt) return <RecalledLine m={m} flash={flash} />;
 
   const out = m.senderId === meId;
@@ -85,6 +88,7 @@ function MessageRow({
         </div>
       )}
       {out && canRecall(state, m) && <RecallButton m={m} />}
+      {out && canPin(state, m) && <PinButton m={m} />}
       <div
         className={cx(
           "relative max-w-[min(540px,82%)] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[15px] leading-[1.4] shadow-[0_1px_0.5px_rgb(0_0_0/0.35)]",
@@ -100,8 +104,9 @@ function MessageRow({
         )}
         {m.replyToId && <ReplyQuote id={m.replyToId} chatId={m.chatId} />}
         <Body m={m} out={out} />
-        <Meta at={m.at} out={out} />
+        <Meta at={m.at} out={out} pinned={!!m.pinnedAt} />
       </div>
+      {!out && canPin(state, m) && <PinButton m={m} />}
     </div>
   );
 
@@ -115,6 +120,19 @@ function MessageRow({
     );
   }
   return bubble;
+}
+
+/** Đề xuất đổi phạm vi hiện thành thẻ rộng giữa khung chat, có nút trả lời ngay tại chỗ. */
+function ChangeInChat({ m, flash }: { m: Message; flash: boolean }) {
+  const { state } = useStore();
+  const ws = m.refs?.workspaceId ? state.workspaces[m.refs.workspaceId] : undefined;
+  const change = ws?.changes?.find((c) => c.id === m.refs?.changeId);
+  if (!ws || !change) return null;
+  return (
+    <div id={`msg-${m.id}`} className="msg-in mx-auto my-2 w-full max-w-[560px]">
+      <ChangeCard ws={ws} change={change} flash={flash} />
+    </div>
+  );
 }
 
 /** Trong chat chỉ còn một dòng; nội dung gốc nằm trong tab Lưu trữ. */
@@ -134,12 +152,16 @@ function RecalledLine({ m, flash }: { m: Message; flash: boolean }) {
 
 /** Thu hồi tin của chính mình: xác nhận ngay tại chỗ, báo rõ bản lưu vẫn còn. */
 function RecallButton({ m }: { m: Message }) {
-  const { dispatch } = useStore();
+  const { state, dispatch } = useStore();
   const [confirm, setConfirm] = useState(false);
   if (confirm) {
     return (
       <div role="alertdialog" aria-label="Thu hồi tin nhắn" className="msg-in mb-1 max-w-[260px] rounded-lg bg-panel p-2.5 text-[12px] text-ink-2 shadow-xl ring-1 ring-line">
-        <p>Tin nhắn sẽ ẩn khỏi cuộc trò chuyện với cả hai bên nhưng vẫn được giữ trong Lưu trữ để đối chiếu.</p>
+        <p>
+          {keepsRecalled(state, m)
+            ? "Tin nhắn sẽ ẩn khỏi cuộc trò chuyện với cả hai bên nhưng vẫn được giữ trong Lưu trữ dự án để đối chiếu."
+            : "Tin nhắn sẽ biến mất với mọi người trong nhóm, không để lại dấu vết."}
+        </p>
         <div className="mt-2 flex justify-end gap-2">
           <button type="button" onClick={() => setConfirm(false)} className="rounded-md px-2.5 py-1 hover:bg-white/8">Hủy</button>
           <button
@@ -167,9 +189,31 @@ function RecallButton({ m }: { m: Message }) {
   );
 }
 
-function Meta({ at, out }: { at: number; out: boolean }) {
+/** Ghim như ghim tin nhắn thường: một chạm, bấm lại để bỏ ghim. */
+function PinButton({ m }: { m: Message }) {
+  const { dispatch } = useStore();
+  const label = m.pinnedAt ? "Bỏ ghim tin nhắn" : "Ghim tin nhắn";
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={!!m.pinnedAt}
+      title={label}
+      onClick={() => dispatch({ type: "TOGGLE_MESSAGE_PIN", chatId: m.chatId, messageId: m.id })}
+      className={cx(
+        "mb-1 grid size-8 shrink-0 place-items-center rounded-full transition-[transform,opacity] hover:bg-white/8 hover:text-ink focus-visible:opacity-100 active:scale-90 md:group-hover:opacity-100",
+        m.pinnedAt ? "text-yellow opacity-80 md:opacity-0" : "text-ink-2 opacity-60 md:opacity-0",
+      )}
+    >
+      {m.pinnedAt ? <PinOff size={16} /> : <Pin size={16} />}
+    </button>
+  );
+}
+
+function Meta({ at, out, pinned }: { at: number; out: boolean; pinned?: boolean }) {
   return (
     <span className="float-right ml-3 mt-1.5 inline-flex translate-y-1 items-center gap-1 text-[11px] leading-none text-ink-2/70">
+      {pinned && <Pin size={11} className="rotate-45 text-yellow" aria-label="Đã ghim" />}
       {hhmm(at)}
       {out && <CheckCheck size={15} className="text-[#53bdeb]" aria-label="Đã xem" />}
     </span>
@@ -203,11 +247,11 @@ function Body({ m, out }: { m: Message; out: boolean }) {
     return (
       <>
         {a && <FilePreview a={a} out={out} />}
-        {m.text && <p className="mt-1 whitespace-pre-wrap break-words">{m.text}</p>}
+        {m.text && <p className="mt-1 whitespace-pre-wrap break-words"><LinkedText text={m.text} /></p>}
       </>
     );
   }
-  return <span className="whitespace-pre-wrap break-words">{m.text}</span>;
+  return <span className="whitespace-pre-wrap break-words"><LinkedText text={m.text ?? ""} /></span>;
 }
 
 /* ---------- Notice 1 dòng + link mở tab panel ---------- */

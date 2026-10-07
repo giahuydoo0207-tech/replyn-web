@@ -5,9 +5,10 @@ import { register } from "node:module";
 import { test } from "node:test";
 
 register("./ts-resolve.mjs", import.meta.url);
-const { activeNovaWorkspace, canRecall, NOVA_ME, novaSourceChatId, novaWsId, reducer, wsChatId } = await import("../../src/lib/reducer.ts");
+const { activeNovaWorkspace, canPin, canRecall, NOVA_ME, pinnedMessages, novaSourceChatId, novaWsId, reducer, wsChatId } = await import("../../src/lib/reducer.ts");
 const { initialState, novaSessionState } = await import("../../src/lib/seed.ts");
 const { nextAction } = await import("../../src/lib/protection.ts");
+const { extractLinks, matchesFilter, splitLinks } = await import("../../src/lib/archive.ts");
 
 const WORKSPACE = "6f1c2a9e-4b7d-4c3e-9a5f-0d8b7e6c5a41";
 const OTHER = "0d8b7e6c-5a41-4c3e-9a5f-6f1c2a9e4b7d";
@@ -165,4 +166,73 @@ test("mark as unread keeps at least one unread message on the conversation", () 
   const read = reducer(s0, { type: "SELECT_CHAT", chatId });
   assert.equal(read.conversations[chatId].unread, 0);
   assert.equal(reducer(read, { type: "MARK_UNREAD", chatId }).conversations[chatId].unread, 1);
+});
+
+test("either side can pin a workspace message, pressing again unpins it", () => {
+  const s0 = load("business", [workspace()]);
+  const chatId = wsChatId(novaWsId(WORKSPACE));
+  const sent = reducer(s0, { type: "SEND_TEXT", chatId, text: "Giao bản nháp trước thứ 6", senderId: "someone-else" });
+  const theirs = sent.messages[chatId].at(-1);
+  assert.equal(canPin(sent, theirs), true);
+
+  const pinned = reducer(sent, { type: "TOGGLE_MESSAGE_PIN", chatId, messageId: theirs.id });
+  const kept = pinned.messages[chatId].find((m) => m.id === theirs.id);
+  assert.ok(kept.pinnedAt);
+  assert.equal(kept.pinnedBy, NOVA_ME);
+  assert.equal(kept.text, theirs.text, "pinning never changes the message");
+  assert.deepEqual(pinnedMessages(pinned, chatId).map((m) => m.id), [theirs.id]);
+
+  const unpinned = reducer(pinned, { type: "TOGGLE_MESSAGE_PIN", chatId, messageId: theirs.id });
+  assert.equal(unpinned.messages[chatId].find((m) => m.id === theirs.id).pinnedAt, undefined);
+  assert.equal(pinnedMessages(unpinned, chatId).length, 0);
+  // System notices cannot be pinned.
+  for (const notice of s0.messages[chatId]) assert.equal(canPin(s0, notice), false);
+});
+
+test("recalling a pinned message removes it from the pins but the archive keeps the text", () => {
+  const s0 = load("business", [workspace()]);
+  const chatId = wsChatId(novaWsId(WORKSPACE));
+  const sent = reducer(s0, { type: "SEND_TEXT", chatId, text: "Chốt màu chủ đạo xanh rêu" });
+  const mine = sent.messages[chatId].at(-1);
+  const pinned = reducer(sent, { type: "TOGGLE_MESSAGE_PIN", chatId, messageId: mine.id });
+  const recalled = reducer(pinned, { type: "RECALL_MESSAGE", chatId, messageId: mine.id });
+  const kept = recalled.messages[chatId].find((m) => m.id === mine.id);
+  assert.equal(kept.text, "Chốt màu chủ đạo xanh rêu");
+  assert.equal(kept.pinnedAt, undefined);
+  assert.equal(pinnedMessages(recalled, chatId).length, 0);
+  assert.equal(canPin(recalled, kept), false);
+});
+
+test("archive filters sort messages into files, links, media, pinned and recalled", () => {
+  const text = (t, extra = {}) => ({ id: "m", chatId: "c", senderId: "u", at: 1, kind: "text", text: t, ...extra });
+  const file = (name, kind = "file") => [{ ...text(undefined), kind: "file" }, { id: "a", name, size: 1, hash: "x", uploadedBy: "u", at: 1, kind }];
+  assert.equal(matchesFilter("links", text("Xem bản nháp: https://figma.com/file/abc, góp ý nhé."), undefined), true);
+  assert.equal(matchesFilter("links", text("Không có liên kết"), undefined), false);
+  assert.equal(matchesFilter("files", ...file("hop-dong.pdf")), true);
+  assert.equal(matchesFilter("media", ...file("hop-dong.pdf")), false);
+  assert.equal(matchesFilter("media", ...file("banner.png", "image")), true);
+  assert.equal(matchesFilter("media", ...file("demo.mp4")), true);
+  assert.equal(matchesFilter("files", ...file("demo.mp4")), false);
+  assert.equal(matchesFilter("pinned", text("a", { pinnedAt: 2 }), undefined), true);
+  assert.equal(matchesFilter("pinned", text("a", { pinnedAt: 2, recalledAt: 3 }), undefined), false);
+  assert.equal(matchesFilter("recalled", text("a", { recalledAt: 3 }), undefined), true);
+});
+
+test("links are extracted without trailing punctuation and only for http(s)", () => {
+  assert.deepEqual(extractLinks("Xem https://figma.com/file/abc, rồi (https://replyn.app/x)."), ["https://figma.com/file/abc", "https://replyn.app/x"]);
+  assert.deepEqual(extractLinks("javascript:alert(1) ftp://a.b"), []);
+  const parts = splitLinks("Mở https://figma.com/a nhé");
+  assert.deepEqual(parts, [{ text: "Mở " }, { text: "https://figma.com/a", href: "https://figma.com/a" }, { text: " nhé" }]);
+});
+
+test("recall in a group removes the message without a trace, unlike a workspace", () => {
+  const s0 = initialState();
+  const chatId = "group-hcm";
+  const sent = reducer(s0, { type: "SEND_TEXT", chatId, text: "Nhầm nhóm, số tài khoản của mình là ..." });
+  const mine = sent.messages[chatId].at(-1);
+  assert.equal(canRecall(sent, mine), true);
+  const recalled = reducer(sent, { type: "RECALL_MESSAGE", chatId, messageId: mine.id });
+  assert.equal(recalled.messages[chatId].find((m) => m.id === mine.id), undefined, "no recalled line is left behind");
+  assert.equal(recalled.messages[chatId].length, s0.messages[chatId].length);
+  assert.equal(JSON.stringify(recalled.messages[chatId]).includes("số tài khoản"), false);
 });

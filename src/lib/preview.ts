@@ -39,6 +39,8 @@ export function previewOf(s: AppState, m: Message): string {
       return `📎 ${findAttachment(s, m.refs?.attachmentId)?.name ?? "Tệp"}`;
     case "submission":
       return `📎 ${findAttachment(s, m.refs?.attachmentId)?.name ?? "Tệp"}`;
+    case "change":
+      return `Đề xuất thay đổi thỏa thuận: ${m.text ?? ""}`;
     default:
       return noticeText(s, m);
   }

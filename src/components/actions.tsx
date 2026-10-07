@@ -6,6 +6,7 @@ import { fileSize, mockHash, sha256Hex, shortHash } from "@/lib/format";
 import { usdc } from "@/lib/fees";
 import { me, type NewFile } from "@/lib/reducer";
 import { useStore } from "@/lib/store";
+import { usePackSummary } from "./panel/DisputePack";
 import { Button, cx, Modal } from "./ui";
 
 type Target = { wsId: string; milestoneId: string };
@@ -242,6 +243,7 @@ function DisputeDialog({ target, onClose }: { target: Target; onClose: () => voi
   const files = ws.attachments.filter((a) => a.milestoneId === ms.id || !a.milestoneId);
   const [reason, setReason] = useState("");
   const [picked, setPicked] = useState<string[]>(files.map((f) => f.id));
+  const pack = usePackSummary(ws.id);
   return (
     <Modal
       open
@@ -276,6 +278,12 @@ function DisputeDialog({ target, onClose }: { target: Target; onClose: () => voi
         Giai đoạn sẽ được tạm giữ. Hai bên có thể bổ sung thông tin trước khi Đội ngũ Nova đề xuất phương án xử lý.
       </p>
       <textarea rows={3} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} className={textarea} placeholder="Mô tả bất đồng và thỏa thuận cần đối chiếu" aria-label="Nội dung cần hỗ trợ" />
+      {pack && (
+        <p className="mt-3 rounded-xl bg-white/[0.04] px-3.5 py-2.5 text-[13px] text-ink-2 ring-1 ring-white/[0.06]">
+          <span className="font-medium text-ink">Tự gửi kèm hồ sơ dự án:</span> thỏa thuận (phiên bản {pack.versions}), {pack.milestones} giai đoạn,{" "}
+          {pack.submissions} bản nộp, {pack.events} sự kiện nhật ký và {pack.messages} tin nhắn. Bên kia cũng xem được hồ sơ này.
+        </p>
+      )}
       {files.length > 0 && (
         <fieldset className="mt-3">
           <legend className="mb-1.5 text-sm font-medium text-ink-2">Đính kèm bằng chứng</legend>

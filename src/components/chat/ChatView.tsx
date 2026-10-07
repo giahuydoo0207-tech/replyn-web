@@ -5,6 +5,7 @@ import {
   Bell,
   BellOff,
   ChevronRight,
+  FilePen,
   Image as ImageIcon,
   LibraryBig,
   Mail,
@@ -22,12 +23,16 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { usdc } from "@/lib/fees";
 import { sha256Hex } from "@/lib/format";
+import { previewOf } from "@/lib/preview";
 import { nextAction } from "@/lib/protection";
-import { useActiveChat, useMe, useStore } from "@/lib/store";
-import type { Conversation, Workspace } from "@/lib/types";
+import { pinnedMessages } from "@/lib/reducer";
+import { jumpToMessage, useActiveChat, useMe, useStore } from "@/lib/store";
+import type { Conversation, Message, Workspace } from "@/lib/types";
 import { useWorkspaceActions } from "../actions";
 import { Avatar, cx, IconButton, ReplynMark } from "../ui";
 import { MessageList } from "./Messages";
+import { ProposeChangeDialog } from "../panel/ScopeChange";
+import { pendingChange } from "@/lib/scopeChange";
 
 export function ChatView({ onBack }: { onBack?: () => void }) {
   const { conv, ws, messages } = useActiveChat();
@@ -107,6 +112,7 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
       />
       {searchOpen && <ChatSearch value={searchQuery} onChange={setSearchQuery} count={shownMessages.length} onClose={() => { setSearchOpen(false); setSearchQuery(""); }} />}
       {ws && <ProjectTaskBar ws={ws} />}
+      {ws && <PinnedBar chatId={conv.id} />}
 
       <div
         className="chat-canvas relative min-h-0 flex-1"
@@ -253,6 +259,60 @@ function ProjectTaskBar({ ws }: { ws: Workspace }) {
   return <button type="button" onClick={() => dispatch({ type: "SET_PANEL", tab: next.tab!, open: true })} className="flex w-full shrink-0 items-center gap-2.5 border-b border-line bg-sidebar px-4 py-2 text-left text-[13px] hover:bg-white/[0.03]"><span className={cx("size-2 shrink-0 rounded-full", next.urgent === "danger" ? "bg-danger" : "bg-amber")} /><span className="min-w-0 flex-1 truncate"><span className="text-muted">Việc cần làm: </span><span className="font-medium text-ink">{next.text}</span></span><span className="text-xs font-medium text-link">Mở</span><ChevronRight size={15} className="text-muted" /></button>;
 }
 
+/**
+ * Thanh ghim đầu chat như ghim tin nhắn thường: bấm để nhảy tới tin, mỗi lần bấm chuyển sang tin ghim kế tiếp.
+ * "Xem tất cả" mở Lưu trữ ở mục Đã ghim.
+ */
+function PinnedBar({ chatId }: { chatId: string }) {
+  const { state, dispatch } = useStore();
+  const pins = pinnedMessages(state, chatId);
+  const [index, setIndex] = useState(0);
+  if (pins.length === 0) return null;
+  const i = index % pins.length;
+  const m: Message = pins[i];
+  const sender = state.users[m.senderId];
+  return (
+    <div className="flex w-full shrink-0 items-center gap-1 border-b border-line bg-sidebar pl-2 pr-2 text-[13px]">
+      <button
+        type="button"
+        onClick={() => {
+          jumpToMessage(dispatch, m.id);
+          setIndex(i + 1);
+        }}
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-2 text-left hover:bg-white/[0.03] active:scale-[0.99]"
+        aria-label={`Tin nhắn đã ghim ${i + 1} trên ${pins.length}. Bấm để xem trong chat`}
+      >
+        {pins.length > 1 ? (
+          <span aria-hidden className="flex h-7 w-[3px] shrink-0 flex-col gap-[2px]">
+            {pins.slice(0, 4).map((p, k) => (
+              <span key={p.id} className={cx("flex-1 rounded-full", k === Math.min(i, 3) ? "bg-yellow" : "bg-white/15")} />
+            ))}
+          </span>
+        ) : (
+          <span aria-hidden className="h-7 w-[3px] shrink-0 rounded-full bg-yellow" />
+        )}
+        <Pin size={15} className="shrink-0 rotate-45 text-yellow" aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[12px] font-medium text-yellow">
+            Tin nhắn đã ghim{pins.length > 1 ? ` · ${i + 1}/${pins.length}` : ""}
+          </span>
+          <span className="block truncate text-ink-2">
+            <span className="text-ink">{sender?.name ?? "Người dùng"}: </span>
+            {previewOf(state, m)}
+          </span>
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={() => dispatch({ type: "SET_PANEL", tab: "archive", open: true, archiveFilter: "pinned" })}
+        className="shrink-0 rounded-md px-2 py-1.5 text-xs font-medium text-link hover:bg-white/[0.04] active:scale-[0.98]"
+      >
+        Xem tất cả
+      </button>
+    </div>
+  );
+}
+
 /** Chỉ các thao tác với cuộc trò chuyện; công cụ dự án nằm sau icon bìa. */
 function ConversationMenu({ conv, onSearch, onClose }: { conv: Conversation; onSearch: () => void; onClose: () => void }) {
   const { dispatch } = useStore();
@@ -284,8 +344,10 @@ function Composer({
   onSubmitWork: () => void;
 }) {
   const { dispatch } = useStore();
+  const meId = useMe();
   const [text, setText] = useState("");
   const [menu, setMenu] = useState(false);
+  const [proposing, setProposing] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
@@ -328,7 +390,7 @@ function Composer({
     setText("");
   };
 
-  type ItemId = "file" | "image" | "submit";
+  type ItemId = "file" | "image" | "submit" | "change";
   type Item = { id: ItemId; label: string; hint?: string; icon: ReactNode; disabled?: boolean; accent?: boolean };
   const items: Item[] = [
     { id: "file", label: "Gửi tệp", icon: <Paperclip size={18} /> },
@@ -337,9 +399,21 @@ function Composer({
   if (ws && canSubmit) {
     items.push({ id: "submit", label: "Nộp sản phẩm", hint: "Gắn vào milestone đang chạy", icon: <Upload size={18} />, accent: true });
   }
+  // Lối tắt đổi phạm vi ngay trong lúc nhắn tin; chỉ hai bên của workspace đã chốt thỏa thuận mới thấy.
+  if (ws && (ws.termsLockedAt || ws.agreement) && (meId === ws.businessId || meId === ws.freelancerId)) {
+    const waiting = !!pendingChange(ws);
+    items.push({
+      id: "change",
+      label: "Đề xuất thay đổi thỏa thuận",
+      hint: waiting ? "Đang có một đề xuất chờ trả lời" : "Đổi giá, hạn hoặc thêm bớt giai đoạn",
+      icon: <FilePen size={18} />,
+      disabled: waiting,
+    });
+  }
   const runItem = (id: ItemId) => {
     if (id === "file") fileInput.current?.click();
     else if (id === "image") imageInput.current?.click();
+    else if (id === "change") setProposing(true);
     else onSubmitWork();
   };
 
@@ -418,6 +492,7 @@ function Composer({
         <input ref={fileInput} type="file" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
         <input ref={imageInput} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
       </div>
+      {proposing && ws && <ProposeChangeDialog ws={ws} onClose={() => setProposing(false)} />}
     </div>
   );
 }

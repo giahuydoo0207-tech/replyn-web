@@ -1,7 +1,10 @@
 import { computePayout } from "./fees";
 import { defaultTab } from "./protection";
+import type { ArchiveFilter } from "./archive";
+import { applyOps, currentVersion, pendingChange, totals } from "./scopeChange";
 import type {
   Attachment,
+  ChangeOp,
   Conversation,
   EvidenceEvent,
   FeeTier,
@@ -54,6 +57,8 @@ export interface UiState {
   panelOpen: boolean;
   filter: ListFilter;
   flashId: string | null; // message/evidence vừa được nhảy tới
+  /** Bộ lọc đang chọn trong tab Lưu trữ; thanh ghim mở thẳng mục "Đã ghim". */
+  archiveFilter?: ArchiveFilter;
 }
 
 export interface AppState {
@@ -81,12 +86,16 @@ export type Action =
   | { type: "SET_CLOCK"; at: number }
   | { type: "SET_ROLE"; role: Role }
   | { type: "SELECT_CHAT"; chatId: string | null }
-  | { type: "SET_PANEL"; tab?: PanelTab; open?: boolean }
+  | { type: "SET_PANEL"; tab?: PanelTab; open?: boolean; archiveFilter?: ArchiveFilter }
   | { type: "SET_FILTER"; filter: ListFilter }
   | { type: "TOGGLE_PIN"; chatId: string }
   | { type: "TOGGLE_MUTE"; chatId: string }
   | { type: "MARK_UNREAD"; chatId: string }
   | { type: "RECALL_MESSAGE"; chatId: string; messageId: string }
+  | { type: "TOGGLE_MESSAGE_PIN"; chatId: string; messageId: string }
+  | { type: "PROPOSE_SCOPE_CHANGE"; wsId: string; reason: string; ops: ChangeOp[] }
+  | { type: "RESPOND_SCOPE_CHANGE"; wsId: string; changeId: string; accept: boolean; note?: string }
+  | { type: "WITHDRAW_SCOPE_CHANGE"; wsId: string; changeId: string }
   | { type: "FLASH"; id: string | null }
   | { type: "SEND_TEXT"; chatId: string; text: string; senderId?: string; replyToId?: string }
   | { type: "SEND_FILE"; chatId: string; file: NewFile; senderId?: string; text?: string }
@@ -295,6 +304,7 @@ export function reducer(state: AppState, action: Action): AppState {
           ...state.ui,
           panelTab: action.tab ?? state.ui.panelTab,
           panelOpen: action.open ?? state.ui.panelOpen,
+          archiveFilter: action.archiveFilter ?? state.ui.archiveFilter,
         },
       };
 
@@ -320,16 +330,45 @@ export function reducer(state: AppState, action: Action): AppState {
     }
 
     case "RECALL_MESSAGE": {
-      // Chỉ người gửi thu hồi được tin văn bản/tệp của chính mình; bản trong Lưu trữ không bị xóa.
+      // Chỉ người gửi thu hồi được tin văn bản/tệp của chính mình.
+      // Workspace: giữ nội dung trong Lưu trữ để hai bên đối chiếu.
+      // Nhóm: kiểu Telegram, xóa hẳn tin khỏi cuộc trò chuyện, không để lại dấu vết.
       const list = state.messages[action.chatId];
       const target = list?.find((m) => m.id === action.messageId);
       if (!target || !canRecall(state, target)) return state;
+      if (!keepsRecalled(state, target)) {
+        return { ...state, messages: { ...state.messages, [action.chatId]: list.filter((m) => m.id !== action.messageId) } };
+      }
       const s = tick(state);
       return {
         ...s,
         messages: {
           ...s.messages,
-          [action.chatId]: list.map((m) => (m.id === action.messageId ? { ...m, recalledAt: s.clock } : m)),
+          // tin đã thu hồi cũng rời khỏi danh sách ghim
+          [action.chatId]: list.map((m) =>
+            m.id === action.messageId ? { ...m, recalledAt: s.clock, pinnedAt: undefined, pinnedBy: undefined } : m,
+          ),
+        },
+      };
+    }
+
+    case "TOGGLE_MESSAGE_PIN": {
+      // Ghim thường: cả hai bên đều ghim/bỏ ghim được, không đổi nội dung tin và không ảnh hưởng niêm phong.
+      const list = state.messages[action.chatId];
+      const target = list?.find((m) => m.id === action.messageId);
+      if (!target || !canPin(state, target)) return state;
+      const s = tick(state);
+      return {
+        ...s,
+        messages: {
+          ...s.messages,
+          [action.chatId]: list.map((m) =>
+            m.id !== action.messageId
+              ? m
+              : m.pinnedAt
+                ? { ...m, pinnedAt: undefined, pinnedBy: undefined }
+                : { ...m, pinnedAt: s.clock, pinnedBy: me(s) },
+          ),
         },
       };
     }
@@ -575,6 +614,114 @@ export function reducer(state: AppState, action: Action): AppState {
         order: [...newIds, ...s.order.filter((id) => !newIds.includes(id))],
         clock: Math.max(state.clock, s.clock),
       };
+    }
+
+    case "PROPOSE_SCOPE_CHANGE": {
+      // Một bên của workspace đề xuất; thỏa thuận phải đã chốt, chưa có đề xuất nào đang chờ, và đề xuất phải hợp lệ.
+      const w = state.workspaces[action.wsId];
+      const by = me(state);
+      const reason = action.reason.trim();
+      if (!w || !(w.termsLockedAt || w.agreement) || pendingChange(w) || !reason || action.ops.length === 0) return state;
+      if (by !== w.businessId && by !== w.freelancerId) return state;
+      if (!applyOps(w.milestones, action.ops, (i) => `check-${i}`)) return state;
+      let s = tick(state);
+      const [s0, changeId] = nextId(s, "chg");
+      const [s1, msg] = pushMessage(s0, {
+        chatId: wsChatId(w.id),
+        senderId: by,
+        kind: "change",
+        text: reason,
+        link: "terms",
+        refs: { workspaceId: w.id, changeId },
+      });
+      s = updateWs(s1, w.id, (x) => ({
+        ...x,
+        changes: [
+          ...(x.changes ?? []),
+          {
+            id: changeId,
+            fromVersion: currentVersion(x),
+            proposedBy: by,
+            at: s1.clock,
+            reason,
+            ops: action.ops,
+            totalBefore: totals(x.milestones, []).before,
+            status: "pending",
+            messageId: msg.id,
+          },
+        ],
+      }));
+      return s;
+    }
+
+    case "RESPOND_SCOPE_CHANGE": {
+      // Chỉ bên còn lại trả lời; đồng ý thì áp dụng ngay và lên phiên bản mới, đề xuất không còn hợp lệ thì bỏ qua.
+      const w = state.workspaces[action.wsId];
+      const c = w?.changes?.find((x) => x.id === action.changeId);
+      const by = me(state);
+      if (!w || !c || c.status !== "pending" || by === c.proposedBy) return state;
+      if (by !== w.businessId && by !== w.freelancerId) return state;
+      let s = tick(state);
+      let applied: ReturnType<typeof applyOps> = null;
+      if (action.accept) {
+        const [s0, base] = nextId(s, "ms");
+        s = s0;
+        applied = applyOps(w.milestones, c.ops, (i) => `${base}-${i + 1}`);
+        if (!applied) return state;
+      }
+      const version = currentVersion(w) + (action.accept ? 1 : 0);
+      const note = action.note?.trim() || undefined;
+      s = updateWs(s, w.id, (x) => ({
+        ...x,
+        ...(applied ? { milestones: applied, version } : {}),
+        changes: (x.changes ?? []).map((y) =>
+          y.id === c.id
+            ? { ...y, status: action.accept ? "accepted" : "declined", respondedBy: by, respondedAt: s.clock, responseNote: note }
+            : y,
+        ),
+      }));
+      const who = s.users[by]?.short ?? "Bên kia";
+      const [s1, msg] = pushMessage(s, {
+        chatId: wsChatId(w.id),
+        senderId: SYSTEM_ID,
+        kind: "system",
+        text: action.accept
+          ? `${who} đã đồng ý thay đổi · Thỏa thuận lên phiên bản ${version}`
+          : `${who} đã từ chối đề xuất thay đổi${note ? `: “${note}”` : ""}`,
+        link: "terms",
+        refs: { workspaceId: w.id, changeId: c.id },
+      });
+      if (!action.accept) return s1;
+      const t = totals(w.milestones, c.ops); // tính trên danh sách trước khi áp dụng
+      const [s2] = addEvidence(s1, w.id, {
+        type: "scope_changed",
+        actorId: by,
+        title: `Thỏa thuận lên phiên bản ${version}`,
+        description: `${s1.users[c.proposedBy]?.short ?? "Một bên"} đề xuất, ${who} đồng ý: “${c.reason}”. Tổng ${t.before.toLocaleString("en-US")} → ${t.after.toLocaleString("en-US")} USDC.`,
+        messageId: msg.id,
+      });
+      return s2;
+    }
+
+    case "WITHDRAW_SCOPE_CHANGE": {
+      const w = state.workspaces[action.wsId];
+      const c = w?.changes?.find((x) => x.id === action.changeId);
+      const by = me(state);
+      if (!w || !c || c.status !== "pending" || by !== c.proposedBy) return state;
+      let s = tick(state);
+      s = updateWs(s, w.id, (x) => ({
+        ...x,
+        changes: (x.changes ?? []).map((y) => (y.id === c.id ? { ...y, status: "withdrawn", respondedBy: by, respondedAt: s.clock } : y)),
+      }));
+      const [s1] = pushMessage(s, {
+        chatId: wsChatId(w.id),
+        senderId: SYSTEM_ID,
+        kind: "system",
+        text: `${s.users[by]?.short ?? "Người đề xuất"} đã rút lại đề xuất thay đổi`,
+        link: "terms",
+        refs: { workspaceId: w.id, changeId: c.id },
+      });
+      return s1;
     }
 
     case "LOCK_TERMS": {
@@ -877,10 +1024,37 @@ export function reducer(state: AppState, action: Action): AppState {
 
 /* ---------- selectors ---------- */
 
-/** Tin văn bản hoặc tệp của chính mình trong hội thoại workspace, chưa thu hồi. */
+/** Tin văn bản hoặc tệp của chính mình trong workspace hoặc nhóm, chưa thu hồi. */
 export function canRecall(s: AppState, m: Message): boolean {
   const conv = s.conversations[m.chatId];
-  return !m.recalledAt && (m.kind === "text" || m.kind === "file") && m.senderId === me(s) && conv?.kind === "replyn";
+  return (
+    !m.recalledAt &&
+    (m.kind === "text" || m.kind === "file") &&
+    m.senderId === me(s) &&
+    (conv?.kind === "replyn" || conv?.kind === "group")
+  );
+}
+
+/** Chỉ workspace giữ tin đã thu hồi (bối cảnh hợp đồng); nhóm xóa hẳn tin, không để lại dòng "đã thu hồi". */
+export function keepsRecalled(s: AppState, m: Message): boolean {
+  return s.conversations[m.chatId]?.kind === "replyn";
+}
+
+/** Tin văn bản, tệp hoặc bản nộp của người dùng trong hội thoại workspace, chưa thu hồi. */
+export function canPin(s: AppState, m: Message): boolean {
+  const conv = s.conversations[m.chatId];
+  return (
+    !m.recalledAt &&
+    ["text", "file", "submission"].includes(m.kind) &&
+    m.senderId !== SYSTEM_ID &&
+    m.senderId !== NOVA_TEAM_ID &&
+    conv?.kind === "replyn"
+  );
+}
+
+/** Tin đang ghim trong một hội thoại, mới ghim nhất lên đầu. */
+export function pinnedMessages(s: AppState, chatId: string): Message[] {
+  return (s.messages[chatId] ?? []).filter((m) => m.pinnedAt && !m.recalledAt).sort((a, b) => b.pinnedAt! - a.pinnedAt!);
 }
 
 export function visibleTo(s: AppState, chatId: string): boolean {

@@ -172,8 +172,11 @@ export function Modal({
   onClose,
   children,
   footer,
+  size = "md",
 }: {
   open: boolean;
+  /** "lg" cho hộp thoại cần bảng nhập liệu. */
+  size?: "md" | "lg";
   title: string;
   onClose: () => void;
   children: ReactNode;
@@ -193,7 +196,7 @@ export function Modal({
         role="dialog"
         aria-modal
         aria-label={title}
-        className="msg-in w-full max-w-md rounded-2xl bg-panel ring-1 ring-line shadow-2xl"
+        className={cx("msg-in flex max-h-[calc(100dvh-32px)] w-full flex-col rounded-2xl bg-panel ring-1 ring-line shadow-2xl", size === "lg" ? "max-w-2xl" : "max-w-md")}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
@@ -202,7 +205,7 @@ export function Modal({
             <X size={20} />
           </IconButton>
         </div>
-        <div className="px-5 py-4">{children}</div>
+        <div className="thin-scroll min-h-0 overflow-y-auto px-5 py-4">{children}</div>
         {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
       </div>
     </div>
