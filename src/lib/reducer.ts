@@ -1,6 +1,7 @@
 import { computePayout } from "./fees";
 import { defaultTab } from "./protection";
 import type { ArchiveFilter } from "./archive";
+import { dueReminders } from "./reminders";
 import { applyOps, currentVersion, pendingChange, totals } from "./scopeChange";
 import type {
   Attachment,
@@ -96,6 +97,10 @@ export type Action =
   | { type: "PROPOSE_SCOPE_CHANGE"; wsId: string; reason: string; ops: ChangeOp[] }
   | { type: "RESPOND_SCOPE_CHANGE"; wsId: string; changeId: string; accept: boolean; note?: string }
   | { type: "WITHDRAW_SCOPE_CHANGE"; wsId: string; changeId: string }
+  /** Kiểm tra hạn và đăng lời nhắc chưa gửi; `now` (giờ thật) chỉ đẩy đồng hồ tới, không lùi. */
+  | { type: "CHECK_REMINDERS"; now?: number }
+  /** Demo: tua đồng hồ tới trước rồi kiểm tra hạn. */
+  | { type: "ADVANCE_CLOCK"; ms: number }
   | { type: "FLASH"; id: string | null }
   | { type: "SEND_TEXT"; chatId: string; text: string; senderId?: string; replyToId?: string }
   | { type: "SEND_FILE"; chatId: string; file: NewFile; senderId?: string; text?: string }
@@ -255,6 +260,30 @@ function milestoneIndex(s: AppState, wsId: string, id: string) {
   return (s.workspaces[wsId]?.milestones.findIndex((m) => m.id === id) ?? 0) + 1;
 }
 
+/** Đăng các lời nhắc hạn chưa gửi vào chat của từng workspace; không có gì mới thì trả nguyên state. */
+function applyReminders(state: AppState): AppState {
+  let s = state;
+  for (const w of Object.values(state.workspaces)) {
+    const name = (id: string) => s.users[id]?.short ?? s.users[id]?.name ?? "";
+    const due = dueReminders(w, s.clock, { business: name(w.businessId), freelancer: name(w.freelancerId) });
+    if (!due.length) continue;
+    for (const r of due) {
+      [s] = pushMessage(s, {
+        chatId: wsChatId(w.id),
+        senderId: SYSTEM_ID,
+        kind: "reminder",
+        text: r.text,
+        tone: r.tone,
+        link: "milestones",
+        refs: { workspaceId: w.id, milestoneId: r.milestoneId },
+        at: s.clock,
+      });
+    }
+    s = updateWs(s, w.id, (x) => ({ ...x, reminded: [...(x.reminded ?? []), ...due.map((r) => r.key)] }));
+  }
+  return s;
+}
+
 /* ---------- reducer ---------- */
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -264,6 +293,12 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case "SET_CLOCK":
       return { ...state, clock: action.at };
+
+    case "CHECK_REMINDERS":
+      return applyReminders(action.now && action.now > state.clock ? { ...state, clock: action.now } : state);
+
+    case "ADVANCE_CLOCK":
+      return action.ms > 0 ? applyReminders({ ...state, clock: state.clock + action.ms }) : state;
 
     case "SET_ROLE": {
       const s = { ...state, role: action.role };

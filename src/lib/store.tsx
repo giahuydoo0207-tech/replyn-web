@@ -72,6 +72,7 @@ export function StoreProvider({ children, workspaceId }: { children: ReactNode; 
         .filter((w, i, all) => all.findIndex((x) => x.workspaceId === w.workspaceId) === i);
       if (workspaces.length) {
         dispatch({ type: "LOAD_NOVA_WORKSPACES", viewer, workspaces });
+        dispatch({ type: "CHECK_REMINDERS", now: Date.now() });
       }
       setWorkspacesLoaded(true);
       const open = (id: string, tab: "terms" | "milestones") => {
@@ -98,6 +99,14 @@ export function StoreProvider({ children, workspaceId }: { children: ReactNode; 
       alive = false;
     };
   }, [workspaceId]);
+
+  // Nhắc hạn tự động: kiểm tra khi mở app và mỗi phút. Giờ thật chỉ đẩy đồng hồ tới (demo đang ở tương lai thì giữ nguyên).
+  useEffect(() => {
+    const check = () => dispatch({ type: "CHECK_REMINDERS", now: Date.now() });
+    check();
+    const id = window.setInterval(check, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!notice) return;

@@ -126,6 +126,8 @@ export interface Workspace {
   version?: number;
   /** Các đề xuất đổi phạm vi, cũ trước mới sau. Mỗi lúc chỉ có tối đa một đề xuất đang chờ. */
   changes?: ScopeChange[];
+  /** Các mốc nhắc hạn đã gửi vào chat, để mỗi mốc chỉ nhắc một lần. */
+  reminded?: string[];
 }
 
 /** Điều khoản của một giai đoạn có thể đổi qua đề xuất. `deadline` theo dạng dd/mm/yyyy như Milestone. */
@@ -171,7 +173,8 @@ export type MessageKind =
   | "payment"
   | "dispute"
   | "decision"
-  | "change";
+  | "change"
+  | "reminder";
 
 export interface MessageRefs {
   workspaceId?: string;
@@ -199,6 +202,8 @@ export interface Message {
   /** Ghim như ghim tin nhắn thường: hiện ở thanh ghim đầu chat và mục "Đã ghim" trong Lưu trữ. Không đưa vào niêm phong. */
   pinnedAt?: number;
   pinnedBy?: string;
+  /** Mức độ của lời nhắc hạn tự động (kind "reminder"). */
+  tone?: "info" | "warning" | "danger";
 }
 
 /** Giai đoạn của một đề xuất đã được chấp nhận trên Nova, dùng để dựng workspace. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCheck, Lock, Pin, PinOff, ShieldCheck, Undo2 } from "lucide-react";
+import { AlarmClock, CheckCheck, Lock, Pin, PinOff, ShieldCheck, Undo2 } from "lucide-react";
 import { Fragment, useState } from "react";
 import { dayKey, dayLabel, hhmm } from "@/lib/format";
 import { noticeText, previewOf } from "@/lib/preview";
@@ -13,7 +13,7 @@ import { ChangeCard } from "../panel/ScopeChange";
 import { Avatar, cx } from "../ui";
 
 const GROUP_GAP = 5 * 60 * 1000;
-const NOTICE_KINDS = ["system", "milestone", "payment", "dispute", "decision"];
+const NOTICE_KINDS = ["system", "milestone", "payment", "dispute", "decision", "reminder"];
 const isNotice = (m: Message) => NOTICE_KINDS.includes(m.kind) || m.senderId === SYSTEM_ID || m.senderId === NOVA_TEAM_ID;
 
 const LINK_LABEL: Record<PanelTab, string> = {
@@ -260,16 +260,25 @@ function Notice({ m, flash, anchor = true }: { m: Message; flash: boolean; ancho
   const { state, dispatch } = useStore();
   const nova = m.senderId === NOVA_TEAM_ID || m.kind === "decision";
   const danger = m.kind === "dispute";
+  const reminder = m.kind === "reminder";
   return (
     <div id={anchor ? `msg-${m.id}` : undefined} className="msg-in my-1 flex justify-center px-4">
       {/* notice là một đoạn text inline nên xuống dòng tự nhiên, icon không bị tách dòng */}
       <p
         className={cx(
           "max-w-[600px] rounded-lg bg-notice/95 px-3 py-1.5 text-center text-[13px] leading-snug text-ink-2 shadow-sm",
+          reminder && m.tone === "warning" && "ring-1 ring-amber/35",
+          reminder && m.tone === "danger" && "ring-1 ring-danger/40",
           flash && "flash",
         )}
       >
-        {nova ? (
+        {reminder ? (
+          <AlarmClock
+            size={14}
+            className={cx("mr-1.5 inline-block align-[-2px]", m.tone === "danger" ? "text-danger" : m.tone === "warning" ? "text-amber" : "text-ink-2")}
+            aria-label="Nhắc hạn"
+          />
+        ) : nova ? (
           <ShieldCheck size={14} className="mr-1.5 inline-block align-[-2px] text-ink-2" />
         ) : danger ? (
           <span className="mr-1.5 inline-block size-1.5 rounded-full bg-danger align-[2px]" />
