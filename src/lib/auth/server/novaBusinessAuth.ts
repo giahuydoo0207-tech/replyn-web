@@ -829,3 +829,27 @@ export async function handleWorkspaces(request: Request, deps: AuthDeps, workspa
   if (result.kind === "unavailable") return json(503, { error: "unavailable" });
   return json(200, { workspaces: result.workspaces });
 }
+
+export type SessionWorkspace =
+  | { kind: "ok"; session: ReplynSession; workspace: PublicWorkspace }
+  | { kind: "error"; response: Response };
+
+/**
+ * Workspace mà người đang đăng nhập được phép mở, kèm kiểm tra cùng nguồn và phiên như GET /api/workspaces/{id}.
+ * Dùng cho các API khác của một workspace (vd. niêm phong) để không lặp lại phần xác thực.
+ */
+export async function resolveSessionWorkspace(request: Request, deps: AuthDeps, workspaceId: string): Promise<SessionWorkspace> {
+  const fail = (status: number, error: AuthErrorCode) => ({ kind: "error" as const, response: json(status, { error }) });
+  if (!sameOrigin(request)) return fail(403, "forbidden");
+  const config = readQrConfig(deps.env);
+  if (!config) return fail(503, "not_configured");
+  const session = verifySession(readCookie(request.headers.get("cookie"), SESSION_COOKIE), config.secret, Math.floor(deps.now() / 1000));
+  if (!session) return fail(401, "unauthenticated");
+  if (!UUID.test(workspaceId)) return fail(404, "not_found");
+  const result = await lookupNovaWorkspaces(
+    config.novaOrigin, config.clientSecret, session, workspaceId.toLowerCase(), deps.fetch, deps.timeoutMs ?? NOVA_TIMEOUT_MS,
+  );
+  if (result.kind === "not_found") return fail(404, "not_found");
+  if (result.kind === "unavailable") return fail(503, "unavailable");
+  return { kind: "ok", session, workspace: result.workspaces[0] };
+}

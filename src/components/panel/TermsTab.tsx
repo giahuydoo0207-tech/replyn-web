@@ -6,6 +6,7 @@ import { ddmmyyyy, hhmm } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import type { Workspace } from "@/lib/types";
 import { Button } from "../ui";
+import { SealCard } from "./SealCard";
 
 export function TermsTab({ ws }: { ws: Workspace }) {
   const { state, dispatch } = useStore();
@@ -37,6 +38,7 @@ export function TermsTab({ ws }: { ws: Workspace }) {
           <p className="mt-3 text-[12px] text-muted">Cấp vốn, giải ngân và phí hiện đang được mô phỏng. Nova và Replyn chưa giữ tiền thật.</p>
         </section>
       )}
+      {agreement && <SealCard workspaceId={agreement.novaWorkspaceId} />}
       <section className="rounded-xl bg-panel p-4">
         <div className="flex items-center gap-2">
           {locked ? <Lock size={16} className="text-ink-2" /> : <LockOpen size={16} className="text-amber" />}
