@@ -10,11 +10,14 @@
     "typecheck": "tsc --noEmit",
     "screens": "node scripts/screens.mjs",
     "test:login": "node scripts/nova-login.mjs",
-    "test": "node --test \"tests/auth/*.test.mjs\" \"tests/workspace/*.test.mjs\"",
+    "test": "node --test \"tests/auth/*.test.mjs\" \"tests/workspace/*.test.mjs\" \"tests/seal/*.test.mjs\"",
     "test:auth": "node --test \"tests/auth/*.test.mjs\"",
-    "test:workspace": "node --test \"tests/workspace/*.test.mjs\""
+    "test:workspace": "node --test \"tests/workspace/*.test.mjs\"",
+    "test:seal": "node --test \"tests/seal/*.test.mjs\""
   },
   "dependencies": {
+    "@solana-program/memo": "^0.14.1",
+    "@solana/kit": "^8.4.0",
     "lucide-react": "^1.49.0",
     "next": "16.3.8",
     "qrcode-generator": "^2.0.4",

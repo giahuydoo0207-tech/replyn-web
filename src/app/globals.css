@@ -335,3 +335,23 @@ body {
 }
 @keyframes na-slide-left { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
 @keyframes na-slide-right { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+/* Con dấu niêm phong: lúc đang niêm phong, con dấu "đóng" xuống theo nhịp. */
+@keyframes seal-press {
+  0%, 55%, 100% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-3px) scale(1.06); }
+  40% { transform: translateY(1px) scale(0.94); }
+}
+.seal-press {
+  animation: seal-press 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+/* Kết quả kiểm chứng: hiện một lần khi có kết quả. */
+@keyframes seal-reveal {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.seal-reveal {
+  animation: seal-reveal 0.28s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .seal-press, .seal-reveal { animation: none; }
+}

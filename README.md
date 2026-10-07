@@ -111,6 +111,26 @@ Nova Chat trong dữ liệu mẫu chỉ để xem.
 Mọi bước cũng làm được bằng thao tác thật: kéo thả file vào khung chat để nộp sản phẩm (hash tính ngay trên
 trình duyệt), hoặc dùng các nút trong panel Replyn Protection.
 
+## Niêm phong thỏa thuận trên Solana
+
+Khi một trong hai bên mở workspace lần đầu, server Replyn chuẩn hóa thỏa thuận đã chấp nhận, tính mã băm SHA-256 và
+ghi mã đó lên Solana devnet bằng một giao dịch Memo do ví niêm phong của Replyn ký. Nội dung thỏa thuận không lên chuỗi.
+
+- Tab Thỏa thuận hiện con dấu "Thỏa thuận đã được niêm phong", nút tải bản thỏa thuận (`.json`) và mục "Chi tiết kỹ thuật"
+  (giao dịch trên Solana Explorer, dấu vân tay).
+- Trang công khai `/verify`: thả file thỏa thuận vào, trình duyệt tính lại mã băm và so với niêm phong trên chuỗi.
+- Không có cơ sở dữ liệu riêng: tra niêm phong bằng lịch sử giao dịch của ví niêm phong. Chỉ tính giao dịch do chính ví
+  đó trả phí; RPC không phải devnet thì từ chối.
+- API: `GET/POST /api/workspaces/{id}/seal` (chỉ hai bên của workspace), `GET /api/seal/verify?workspaceId=&hash=` (công khai).
+
+Bật tính năng:
+
+1. `node scripts/create-seal-wallet.mjs` để tạo ví, rồi nhận SOL devnet ở https://faucet.solana.com.
+2. Đặt `SOLANA_SEAL_SECRET_KEY` (mảng JSON 64 số) trên Vercel. Không commit khóa.
+3. Redeploy. Không đặt biến này thì thẻ niêm phong không hiện, mọi thứ khác chạy như cũ.
+
+Kiểm thử không gọi mạng: `npm run test:seal`.
+
 ## Cấu trúc
 
 ```
