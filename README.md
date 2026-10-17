@@ -12,7 +12,7 @@ Replyn không giữ tiền thật. Bản này chạy độc lập, không còn p
 cd replyn-web
 npm install
 npm run dev          # http://localhost:3000
-npm run typecheck; npm run lint; npm test; npm run build
+npx next typegen; npm run typecheck; npm run lint; npm test; npm run build
 ```
 
 Chụp màn hình và chạy thử luồng chính (cần `npm run dev` đang chạy và Chrome đã cài):
@@ -80,21 +80,48 @@ Kiểm thử: `npm run test:agreement` (PDF, dấu vân tay, chữ ký, phiên �
 
 ```
 src/
-  app/                 layout (Inter + vietnamese), globals.css (design tokens vàng-đen, pattern khung chat)
+  app/
+    page.tsx             trang chính, chưa đăng nhập thì chuyển /login
+    login/               trang đăng nhập + danh sách tài khoản mẫu
+    verify/              trang công khai kiểm chứng thỏa thuận
+    api/auth/            login, logout, session
+    api/agreements/      receipt (ký xác nhận), verify (kiểm chứng)
+    layout.tsx, globals.css   font Inter (vietnamese), design tokens vàng-đen, pattern khung chat
   lib/
-    types.ts           Workspace, Milestone, Submission, Dispute, EvidenceEvent, Message (+ refs)
-    reducer.ts         toàn bộ luồng nghiệp vụ; mỗi hành động sinh message trong chat + sự kiện bằng chứng
-    seed.ts            mock data, workspace phụ (dựng bằng chính reducer), các scene demo
-    fees.ts            BASIC 7% / ADVANCED 10% (mô phỏng), phí chỉ tính trên phần freelancer nhận
-    store.tsx          React context + useReducer
+    types.ts             Workspace, Milestone, Submission, Dispute, EvidenceEvent, Message (+ refs)
+    reducer.ts           toàn bộ luồng nghiệp vụ; mỗi hành động sinh message trong chat + sự kiện bằng chứng
+    seed.ts              dữ liệu mẫu, workspace phụ (dựng bằng chính reducer), 5 cảnh demo
+    store.tsx            React context + useReducer, lưu localStorage, gắn tài khoản đăng nhập
+    auth/                tài khoản mẫu, phiên cookie ký HMAC (server-only)
+    agreement/           chuẩn hóa + SHA-256 thỏa thuận, chữ ký xác nhận, PDF vi/en
+    scopeChange.ts       đề xuất đổi phạm vi, phiên bản thỏa thuận
+    disputePack*.ts      hồ sơ hỗ trợ (JSON + PDF)
+    fees.ts              BASIC 7% / ADVANCED 10% (mô phỏng), phí chỉ tính trên phần freelancer nhận
+    protection.ts        thứ tự tab, tab mặc định, việc cần làm theo ngữ cảnh
   components/
-    Rail.tsx           rail icon trái + menu Demo / đổi vai
-    ChatList.tsx       search, filter chips, unread, badge trạng thái workspace
-    chat/              ChatView (header + tagline, dòng ghim, composer), Messages (bubble + notice 1 dòng)
-    panel/             Bảo vệ dự án: StatusHeader + Điều khoản, Milestones, Files, Bằng chứng, Tranh chấp
-    (lib/protection.ts) thứ tự tab, tab mặc định, việc cần làm theo ngữ cảnh
-    actions.tsx        dialog Nộp sản phẩm / Yêu cầu sửa / Mở tranh chấp
-public/pattern.svg     doodle line-icon cho nền chat (tự vẽ, không dùng asset WhatsApp/Telegram)
+    Rail.tsx             rail icon trái + menu Demo (tài khoản, du hành thời gian, cảnh, đặt lại)
+    ChatList.tsx         tìm kiếm, bộ lọc, chưa đọc, trạng thái dự án
+    chat/                ChatView (header, dòng ghim, composer), Messages, OpenProjectDialog (Mở dự án)
+    panel/               công cụ dự án: Thỏa thuận (+ AgreementCard), Tiến độ, Sản phẩm, Nhật ký, Hỗ trợ, Lưu trữ
+    verify/              trang Kiểm chứng
+    actions.tsx          dialog Nộp sản phẩm / Yêu cầu sửa / Mở tranh chấp
+tests/
+  workspace/             reducer, nhắc hạn, đổi phạm vi, hồ sơ hỗ trợ
+  agreement/             PDF, dấu vân tay, chữ ký, phiên đăng nhập
+public/pattern.svg       doodle line-icon cho nền chat (tự vẽ, không dùng asset WhatsApp/Telegram)
 ```
 
 Không copy logo, icon, brand hay code của WhatsApp/Telegram, chỉ học UX pattern. Icon dùng `lucide-react`.
+
+## Giới hạn hiện tại
+
+- Chưa có backend: dữ liệu demo nằm trong `localStorage` (key `replyn-demo-state-v2`), hai máy không thấy dữ liệu của nhau.
+- Đăng nhập là tài khoản mẫu (mật khẩu trong code, không đăng ký, không giới hạn số lần thử); chưa dùng được cho người
+  dùng thật.
+- Server ký đúng nội dung thỏa thuận trình duyệt gửi lên vì chưa có dữ liệu riêng để đối chiếu.
+- Tiền, ký quỹ, phí và giải ngân đều là mô phỏng.
+
+## Tiếp quản dự án
+
+Đọc [docs/HANDOFF.md](docs/HANDOFF.md) trước khi sửa code: bối cảnh, kiến trúc, cơ chế đăng nhập và mã băm, những
+phần đã gỡ (Nova, Solana), quy ước khi sửa và các việc nên làm tiếp.
