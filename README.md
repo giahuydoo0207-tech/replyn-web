@@ -1,24 +1,10 @@
-# Replyn Web — MVP demo (UniHackFest 10/10/2026)
+# Replyn Web — MVP demo
 
-> Nova giúp hai bên gặp nhau. Replyn giúp hai bên tin nhau để làm việc.
+> Replyn giúp hai bên tin nhau để làm việc: chat, thỏa thuận dự án, milestone và bằng chứng ở cùng một nơi.
 
-Web demo UI/UX của Replyn: chat + workspace + milestone + bằng chứng dự án. Bố cục học theo WhatsApp Web,
-mật độ tin nhắn học theo Telegram, theme vàng-đen. **Toàn bộ dữ liệu là mock, chưa có backend.**
-Cấp vốn, giải ngân và phí vận hành đều là mô phỏng. Replyn không custody tiền thật.
-
-## Trạng thái tích hợp với Nova
-
-- Nova Business và Nova Mobile dùng chung một backend Spring Boot/PostgreSQL.
-- Nova Mobile có đăng nhập thật (email/OTP, token lưu an toàn trên thiết bị).
-- Nova Business hiện là demo dưới một organization mẫu, **chưa có phiên đăng nhập người dùng doanh nghiệp**.
-- Màn “Tiếp tục với Nova” của Replyn (`/auth/nova`) xác thực thật qua server Replyn: **Nova ID + Nova Key** (Business)
-  và **mã QR xác nhận bằng Nova Mobile** (Talent), cấp phiên Replyn trong cookie HttpOnly.
-- Tin nhắn Nova CHAT trong bản nộp là **dữ liệu seed** (chỉ xem); đăng nhập thật chưa đồng bộ tin nhắn thật.
-- Workspace của đề xuất đã chấp nhận trên Nova được đọc thật từ Nova backend (xem *Workspace thật từ Nova*).
-- Tích hợp Supabase và signed handoff là **kiến trúc tiếp theo**, chưa triển khai.
-- Ký quỹ, phí và giải ngân đều là **mô phỏng**; Replyn không giữ tiền thật.
-
-Kiến trúc, ERD và integration contract dự kiến: [docs/architecture/nova-supabase-integration.md](docs/architecture/nova-supabase-integration.md).
+Web demo UI/UX của Replyn. Bố cục học theo WhatsApp Web, mật độ tin nhắn học theo Telegram, theme vàng-đen.
+**Chưa có backend:** dữ liệu là dữ liệu mẫu, lưu trong trình duyệt. Ký quỹ, phí và giải ngân đều là mô phỏng;
+Replyn không giữ tiền thật. Bản này chạy độc lập, không còn phụ thuộc Nova hay Supabase.
 
 ## Chạy
 
@@ -26,44 +12,32 @@ Kiến trúc, ERD và integration contract dự kiến: [docs/architecture/nova-
 cd replyn-web
 npm install
 npm run dev          # http://localhost:3000
-npm run typecheck; npm run lint; npm run build
+npm run typecheck; npm run lint; npm test; npm run build
 ```
 
-Chụp màn hình các cảnh demo và chạy thử luồng chính (cần `npm run dev` đang chạy và Chrome đã cài):
+Chụp màn hình và chạy thử luồng chính (cần `npm run dev` đang chạy và Chrome đã cài):
 
 ```powershell
 $env:BASE_URL="http://localhost:3000"; npm run screens   # ảnh lưu ở ./screenshots
 ```
 
-## Đăng nhập Replyn bằng Nova
+## Đăng nhập bằng tài khoản mẫu
 
-Route `/auth/nova`, ví dụ `/auth/nova?handoff=demo-handoff-01&conversation=nova-khoa`. Server Replyn
-(`src/lib/auth/server/novaBusinessAuth.ts`) gọi Nova backend; trình duyệt chỉ gọi route same-origin của Replyn.
-Biến môi trường (chỉ server, không bao giờ `NEXT_PUBLIC_`): `NOVA_API_URL`, `REPLYN_SESSION_SECRET`,
-`REPLYN_QR_CLIENT_SECRET` và `NOVA_BUSINESS_WEB_URL` (không bắt buộc) (xem `.env.example`).
+Trang `/login`, mật khẩu chung `replyn2026`:
 
-- **Nova ID** (Business): Nova ID là định danh công khai nên luôn đi kèm **Nova Key**; `POST /api/auth/nova/business`
-  xác minh cặp này với Nova. Nova Key không được lưu.
-- **Mã QR** (Talent, Nova Mobile): `POST /api/auth/nova/qr` nhờ Nova backend tạo challenge 60 giây, đặt cookie
-  `replyn_qr_pairing` (HttpOnly, ký HMAC, giữ pairingId + browserSecret) và chỉ trả `qrUrl`
-  (`/auth/nova?pairing=…&secret=…&exp=…&action=login`). Trang hỏi `GET /api/auth/nova/qr` mỗi 2 giây; khi Nova Mobile
-  đã xác nhận, server tiêu thụ challenge đúng một lần, đặt phiên Talent và xóa cookie challenge. Talent không có
-  Nova ID: giao diện hiện tên và “Nova Mobile đã xác minh”, không bao giờ hiện mã hồ sơ nội bộ.
-- Đăng nhập xong, `src/lib/auth/demoSession.ts` ghi vào sessionStorage của tab cuộc trò chuyện cần mở và một thông báo
-  một lần; vai trò luôn đọc lại từ cookie phiên nên refresh vẫn giữ. Có `handoff` + `conversation` thì mở thẳng cuộc
-  trò chuyện (nếu tài khoản là thành viên); Talent không có handoff thì mở kênh `channel-nova`; `returnTo` chỉ nhận
-  đường dẫn nội bộ.
-- Chưa có giới hạn tần suất phân tán cho các route đăng nhập; đó là hạ tầng tiếp theo (không dùng bộ đếm trong bộ nhớ).
-- Màn chat chính chưa bắt buộc đăng nhập, để giữ nguyên luồng demo hiện tại.
-- **Backend thật phải xác minh signed handoff** (chữ ký, hạn dùng, người nhận) ở server, không tin query trên URL.
+| Email | Tên | Vai trò |
+| --- | --- | --- |
+| `ha@moccoffee.vn` | Trần Thu Hà | Doanh nghiệp |
+| `khoa@replyn.dev` | Lê Minh Khoa | Freelancer |
+| `yen@studioyen.vn` | Lê Hoàng Yến | Doanh nghiệp |
 
-```powershell
-$env:BASE_URL="http://localhost:3000"; npm run test:login   # ảnh login-*.png lưu ở ./screenshots
-```
-
-`npm run test:login` dùng máy chủ Nova giả trên máy (tự duyệt challenge thay cho Nova Mobile) và giải mã lại ảnh chụp
-QR bằng `jsqr` (devDependency) để chắc mã vẫn quét được khi có logo ở giữa. `npm run test:auth` kiểm thử server,
-`npm run test:workspace` kiểm thử reducer workspace; `npm test` chạy cả hai.
+- `POST /api/auth/login` kiểm tra email + mật khẩu, đặt cookie `replyn_session` (HttpOnly, SameSite=Lax, 7 ngày, ký
+  HMAC-SHA256). `POST /api/auth/logout` xóa cookie, `GET /api/auth/session` trả tài khoản hiện tại.
+- Vai trò và "mình là ai" trong dữ liệu luôn theo tài khoản đăng nhập, không đổi được trong app.
+- Dữ liệu demo dùng chung cho các tài khoản trên cùng một trình duyệt: đăng xuất rồi đăng nhập tài khoản bên kia là
+  thấy đúng dự án vừa làm. Trình duyệt khác thì không thấy (chưa có backend).
+- Biến môi trường duy nhất: `REPLYN_SESSION_SECRET` (≥ 32 ký tự, xem `.env.example`). Bắt buộc trên production; khi
+  chạy máy mà bỏ trống thì dùng khóa dev cố định.
 
 ## IA: tách lớp Chat và lớp Protection
 
@@ -76,60 +50,31 @@ QR bằng `jsqr` (devDependency) để chắc mã vẫn quét được khi có l
 
 ## Luồng demo
 
-Nút **Demo** ở rail trái cho phép nhảy thẳng tới từng cảnh và đổi vai **Business / Freelancer**:
+1. **Mở dự án**: trong chat trực tiếp chưa có dự án, doanh nghiệp bấm **+ → Mở dự án**, đặt tên và các giai đoạn.
+2. **Xác nhận thỏa thuận**: hai bên rà lại trong tab Thỏa thuận và *Hai bên xác nhận thỏa thuận*.
+3. **Ký quỹ & nộp sản phẩm**: ký quỹ mô phỏng, freelancer kéo thả file vào chat để nộp (SHA-256 tính ngay trên trình
+   duyệt, xem ở tab Files).
+4. **Tranh chấp**: yêu cầu sửa, nộp lại v2, mở tranh chấp, *Đội hỗ trợ Replyn* xem xét.
+5. **Quyết định & bằng chứng**: chia tiền, phí mô phỏng, timeline *Bằng chứng dự án*.
 
-Đề xuất Replyn **không** được tạo trong Replyn: doanh nghiệp gửi đề xuất từ cuộc trò chuyện trên Nova Business,
-freelancer chấp nhận hoặc từ chối trên Nova Mobile. Replyn chỉ mở workspace của thỏa thuận đã được chấp nhận; lịch sử
-Nova Chat trong dữ liệu mẫu chỉ để xem.
+Nút **Demo** ở rail trái có tài khoản đang đăng nhập, du hành thời gian, các cảnh dựng sẵn và đặt lại demo.
 
-1. **Thỏa thuận từ Nova**: workspace mở từ đề xuất đã chấp nhận, hai bên xem và *Xác nhận thỏa thuận*.
-2. **Workspace & milestone**: thỏa thuận đã xác nhận, M1 *Đã ký quỹ (mô phỏng)*.
-3. **Nộp sản phẩm**: chat chỉ có bubble file gọn + notice; SHA-256 nằm trong tab Files.
-4. **Tranh chấp**: yêu cầu sửa, nộp lại v2, mở tranh chấp, *Đội ngũ Nova* review.
-5. **Quyết định & bằng chứng**: chia 600/400, phí mô phỏng, timeline *Bằng chứng dự án*.
+## Dấu vân tay và kiểm chứng thỏa thuận
 
-## Workspace thật từ Nova
+Bản trước niêm phong mã băm lên Solana devnet; bản này **giữ mã băm, bỏ chuỗi khối**:
 
-- `/workspace/{workspaceId}`: id mờ do Nova cấp khi freelancer chấp nhận đề xuất. Chưa đăng nhập thì chuyển sang
-  `/auth/nova?returnTo=/workspace/{id}` (Business dùng Nova ID, Talent quét QR) rồi quay lại đúng workspace.
-- `GET /api/workspaces` và `GET /api/workspaces/{id}`: server Replyn đọc danh tính từ cookie phiên và hỏi Nova
-  (`POST /api/v1/integrations/replyn/workspaces/lookup`, cùng `REPLYN_QR_CLIENT_SECRET`). Workspace không tồn tại và
-  workspace của người khác đều trả 404; trình duyệt không nhận mã hồ sơ nội bộ.
-- Danh tính thật ngồi ghế riêng (`nova-me`), không dùng ghế mẫu `u-ha` / `u-khoa`. Talent đăng nhập bằng QR mà không có
-  `returnTo` sẽ được mở workspace được chấp nhận gần nhất, nếu có.
-- Phiên Nova thật (Business hoặc Talent) không có dữ liệu mẫu: không người, nhóm, workspace mẫu, không đổi vai, cảnh
-  demo hay đặt lại demo. Chưa có workspace thì chat list báo workspace sẽ xuất hiện khi đề xuất được chấp nhận.
-- Thỏa thuận đã khóa sẵn cho cả hai bên tại thời điểm freelancer chấp nhận đề xuất trên Nova (`acceptedAt`), không
-  còn nút xác nhận. Mỗi workspace có đúng một mục ở chat list (hội thoại Nova chỉ xem → biểu tượng bìa hồ sơ để vào
-  workspace). Mở hội thoại hoặc workspace thì URL đổi thành `/workspace/{id}` nên tải lại trang vẫn mở đúng chỗ.
-- Nova có thể gửi thêm `sourceThreadId` (không bắt buộc). Khi có và server đặt `NOVA_BUSINESS_WEB_URL`, server tính sẵn
-  liên kết về cuộc trò chuyện trên Nova Business cho doanh nghiệp; freelancer không bao giờ nhận id này. Giao diện hiện
-  không hiển thị liên kết này.
-- Giới hạn: thỏa thuận, milestone và hai bên đến từ Nova; các thao tác trong workspace (ký quỹ, nộp sản phẩm, nghiệm
-  thu, hỗ trợ, nhật ký) vẫn là mô phỏng trong từng trình duyệt, chưa đồng bộ giữa hai bên.
+- Khi hai bên xác nhận, thỏa thuận (tên dự án, các giai đoạn, số tiền, hạn, tên hai bên, phiên bản) được chuẩn hóa và
+  băm SHA-256 (`src/lib/agreement/agreement.ts`). Đổi phạm vi thì phiên bản tăng và dấu vân tay đổi theo.
+- Tải bản PDF (tiếng Việt/Anh) hoặc JSON: server ký xác nhận HMAC-SHA256 trên (mã workspace, dấu vân tay, thời điểm)
+  bằng `REPLYN_SESSION_SECRET` (`POST /api/agreements/receipt`, chỉ một trong hai bên được xin). Chữ ký và dữ liệu gốc
+  được đính kèm trong PDF.
+- Trang công khai `/verify`: thả file PDF/JSON vào, server tính lại mã băm và kiểm chữ ký
+  (`POST /api/agreements/verify`): **đúng bản gốc**, **file đã bị sửa**, **chữ ký không hợp lệ** hoặc **chưa có xác
+  nhận**. File không được lưu lại.
+- Giới hạn: đổi `REPLYN_SESSION_SECRET` thì các file cũ báo chữ ký không hợp lệ. Chữ ký chứng minh Replyn đã xác nhận
+  nội dung, nhưng khác chuỗi khối, người ngoài không tự kiểm được nếu không hỏi server Replyn.
 
-Mọi bước cũng làm được bằng thao tác thật: kéo thả file vào khung chat để nộp sản phẩm (hash tính ngay trên
-trình duyệt), hoặc dùng các nút trong panel Replyn Protection.
-
-## Niêm phong thỏa thuận trên Solana
-
-Khi một trong hai bên mở workspace lần đầu, server Replyn chuẩn hóa thỏa thuận đã chấp nhận, tính mã băm SHA-256 và
-ghi mã đó lên Solana devnet bằng một giao dịch Memo do ví niêm phong của Replyn ký. Nội dung thỏa thuận không lên chuỗi.
-
-- Tab Thỏa thuận hiện con dấu "Thỏa thuận đã được niêm phong", nút tải bản thỏa thuận (`.json`) và mục "Chi tiết kỹ thuật"
-  (giao dịch trên Solana Explorer, dấu vân tay).
-- Trang công khai `/verify`: thả file thỏa thuận vào, trình duyệt tính lại mã băm và so với niêm phong trên chuỗi.
-- Không có cơ sở dữ liệu riêng: tra niêm phong bằng lịch sử giao dịch của ví niêm phong. Chỉ tính giao dịch do chính ví
-  đó trả phí; RPC không phải devnet thì từ chối.
-- API: `GET/POST /api/workspaces/{id}/seal` (chỉ hai bên của workspace), `GET /api/seal/verify?workspaceId=&hash=` (công khai).
-
-Bật tính năng:
-
-1. `node scripts/create-seal-wallet.mjs` để tạo ví, rồi nhận SOL devnet ở https://faucet.solana.com.
-2. Đặt `SOLANA_SEAL_SECRET_KEY` (mảng JSON 64 số) trên Vercel. Không commit khóa.
-3. Redeploy. Không đặt biến này thì thẻ niêm phong không hiện, mọi thứ khác chạy như cũ.
-
-Kiểm thử không gọi mạng: `npm run test:seal`.
+Kiểm thử: `npm run test:agreement` (PDF, dấu vân tay, chữ ký, phiên đăng nhập), `npm run test:workspace` (reducer).
 
 ## Cấu trúc
 

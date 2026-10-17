@@ -3,7 +3,7 @@
 import { AlertTriangle, BadgeCheck, Banknote, FilePen, FilePlus2, FileUp, Gavel, Lock, PencilLine, RefreshCw, Search } from "lucide-react";
 import type { ComponentType } from "react";
 import { ddmmyyyy, hhmm, shortHash } from "@/lib/format";
-import { NOVA_TEAM_ID, SYSTEM_ID } from "@/lib/reducer";
+import { TEAM_ID, SYSTEM_ID } from "@/lib/reducer";
 import { jumpToMessage, useStore } from "@/lib/store";
 import type { EvidenceType, Workspace } from "@/lib/types";
 import { cx } from "../ui";
@@ -17,7 +17,7 @@ const ICON: Record<EvidenceType, ComponentType<{ size?: number }>> = {
   resubmitted: RefreshCw,
   accepted: BadgeCheck,
   dispute_opened: AlertTriangle,
-  nova_review: Search,
+  team_review: Search,
   scope_changed: FilePen,
   decision: Gavel,
   released: Banknote,
@@ -28,7 +28,7 @@ export function EvidenceTab({ ws }: { ws: Workspace }) {
   const { state, dispatch } = useStore();
   const actorLabel = (id: string) => {
     if (id === SYSTEM_ID) return "Replyn";
-    if (id === NOVA_TEAM_ID) return "Đội ngũ Nova";
+    if (id === TEAM_ID) return "Đội hỗ trợ Replyn";
     return `${state.users[id]?.name} · ${id === ws.businessId ? "Business" : "Freelancer"}`;
   };
 

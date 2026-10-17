@@ -223,9 +223,9 @@ export function VersionPanel({ ws }: { ws: Workspace }) {
   const accepted = (ws.changes ?? []).filter((c) => c.status === "accepted");
   const closed = (ws.changes ?? []).filter((c) => c.status !== "pending").slice().reverse();
   const party = meId === ws.businessId || meId === ws.freelancerId;
-  const locked = !!(ws.termsLockedAt || ws.agreement);
+  const locked = !!ws.termsLockedAt;
   const last = accepted[accepted.length - 1];
-  const origin = ws.agreement?.acceptedAt ?? ws.termsLockedAt;
+  const origin = ws.termsLockedAt;
   // Chưa chốt thỏa thuận thì chưa có gì để đổi; khung này chỉ hiện sau khi hai bên đã khóa điều khoản.
   if (!locked) return null;
 

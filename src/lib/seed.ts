@@ -1,8 +1,8 @@
 import { mockHash, vnTime } from "./format";
-import { NOVA_ME, NOVA_TEAM_ID, reducer, SYSTEM_ID, wsChatId, type Action, type AppState } from "./reducer";
-import type { Conversation, Message, ProposalDraft, Role, User } from "./types";
+import { reducer, wsChatId, type Action, type AppState } from "./reducer";
+import type { Conversation, Message, ProposalDraft, User } from "./types";
 
-/** Giờ demo: sáng chung kết UniHackFest */
+/** Giờ demo của dữ liệu mẫu */
 export const DEMO_NOW = vnTime(2026, 10, 10, 9, 0);
 
 const users: Record<string, User> = {
@@ -15,36 +15,36 @@ const users: Record<string, User> = {
   "u-tuan": { id: "u-tuan", name: "Võ Anh Tuấn", short: "Anh Tuấn", title: "Back-end Developer", color: "#7FD1AE" },
   "u-mai": { id: "u-mai", name: "Huỳnh Mai", short: "Mai", title: "Content Writer", color: "#F5C26B" },
   replyn: { id: "replyn", name: "Replyn", short: "Replyn", title: "Hệ thống", color: "#FFD33D" },
-  "nova-team": { id: "nova-team", name: "Đội ngũ Nova", short: "Đội ngũ Nova", title: "Nova Trust & Safety", color: "#FFD33D" },
+  "replyn-team": { id: "replyn-team", name: "Đội hỗ trợ Replyn", short: "Hỗ trợ Replyn", title: "Replyn Trust & Safety", color: "#FFD33D" },
 };
 
 const av = (initials: string, bg: string, fg = "#e9edef") => ({ initials, bg, fg });
 
 const conversations: Record<string, Conversation> = {
-  "nova-khoa": {
-    id: "nova-khoa",
-    kind: "nova",
+  "dm-khoa": {
+    id: "dm-khoa",
+    kind: "direct",
     title: "Lê Minh Khoa",
-    subtitle: "Nova Chat · Ứng viên “Landing page Mộc Coffee”",
+    subtitle: "Ứng viên “Landing page Mộc Coffee”",
     avatar: av("MK", "#123b40", "#5FD4E0"),
     memberIds: ["u-ha", "u-khoa"],
     unread: 0,
     pinned: true,
   },
-  "nova-quan": {
-    id: "nova-quan",
-    kind: "nova",
+  "dm-quan": {
+    id: "dm-quan",
+    kind: "direct",
     title: "Đỗ Minh Quân",
-    subtitle: "Nova Chat · Ứng viên “Video motion menu mùa thu”",
+    subtitle: "Ứng viên “Video motion menu mùa thu”",
     avatar: av("MQ", "#2c2547", "#B9A6FF"),
     memberIds: ["u-ha", "u-quan"],
     unread: 1,
   },
-  "nova-yen": {
-    id: "nova-yen",
-    kind: "nova",
+  "dm-yen": {
+    id: "dm-yen",
+    kind: "direct",
     title: "Lê Hoàng Yến",
-    subtitle: "Nova Chat · Studio Yến",
+    subtitle: "Studio Yến",
     avatar: av("HY", "#43231a", "#FF8A65"),
     memberIds: ["u-yen", "u-khoa"],
     unread: 2,
@@ -52,20 +52,20 @@ const conversations: Record<string, Conversation> = {
   "group-hcm": {
     id: "group-hcm",
     kind: "group",
-    title: "Nova Freelancers HCM",
+    title: "Freelancers HCM",
     subtitle: "1.284 thành viên",
-    avatar: av("NF", "#1b2e22", "#7FD1AE"),
+    avatar: av("FH", "#1b2e22", "#7FD1AE"),
     memberIds: ["u-tuan", "u-mai", "u-ngoc", "u-bao", "u-khoa", "u-ha"],
     unread: 12,
     muted: true,
   },
-  "channel-nova": {
-    id: "channel-nova",
+  "channel-replyn": {
+    id: "channel-replyn",
     kind: "channel",
-    title: "Đội ngũ Nova",
+    title: "Replyn",
     subtitle: "Kênh thông báo · 48.910 người theo dõi",
-    avatar: av("N", "#233138", "#e9edef"),
-    memberIds: ["nova-team"],
+    avatar: av("R", "#233138", "#e9edef"),
+    memberIds: ["replyn-team"],
     unread: 1,
   },
 };
@@ -74,25 +74,25 @@ type Seed = [chatId: string, sender: string, at: number, text: string, replyTo?:
 
 const d = (day: number, h: number, m: number) => vnTime(2026, 10, day, h, m);
 
-// Cuộc phỏng vấn trên Nova Chat (index dùng cho replyTo)
+// Cuộc trao đổi trước khi mở dự án (index dùng cho replyTo)
 const seedMessages: Seed[] = [
-  ["nova-khoa", "u-ha", d(8, 20, 2), "Chào Khoa, chị là Hà bên Mộc Coffee. Chị xem portfolio trên Nova rồi, phần landing page cho chuỗi F&B rất ổn 👍"],
-  ["nova-khoa", "u-khoa", d(8, 20, 4), "Dạ em chào chị Hà! Cảm ơn chị đã xem. Bên chị cần landing page cho dịp ra mắt menu mùa thu đúng không ạ?"],
-  ["nova-khoa", "u-ha", d(8, 20, 5), "Đúng rồi. Cần có giới thiệu menu, câu chuyện thương hiệu, đặt bàn và bản đồ 3 chi nhánh."],
-  ["nova-khoa", "u-ha", d(8, 20, 5), "Deadline lên sóng trước 25/10."],
-  ["nova-khoa", "u-khoa", d(8, 20, 9), "Em đề xuất chia 2 giai đoạn: thiết kế UI trên Figma trước, chị duyệt xong em mới code Next.js. Như vậy sửa sẽ rẻ hơn."],
-  ["nova-khoa", "u-ha", d(8, 20, 11), "Hợp lý. Báo giá giúp chị nhé?"],
-  ["nova-khoa", "u-khoa", d(8, 20, 16), "Thiết kế UI: 1.000 USDC (tối đa 2 lượt sửa). Code & bàn giao: 1.500 USDC. Tổng 2.500 USDC ạ."],
-  ["nova-khoa", "u-ha", d(9, 9, 30), "Chị trao đổi với team rồi, chốt chọn em nhé 🎉", 6],
-  ["nova-khoa", "u-khoa", d(9, 9, 34), "Tuyệt quá, cảm ơn chị! Mình bắt đầu từ thứ Hai được không ạ?"],
-  ["nova-khoa", "u-ha", d(9, 9, 36), "Ok. Lần trước chị thuê ngoài bị bỏ dở giữa chừng, lần này chị muốn mọi thứ rõ ràng từ đầu."],
+  ["dm-khoa", "u-ha", d(8, 20, 2), "Chào Khoa, chị là Hà bên Mộc Coffee. Chị xem portfolio của em rồi, phần landing page cho chuỗi F&B rất ổn 👍"],
+  ["dm-khoa", "u-khoa", d(8, 20, 4), "Dạ em chào chị Hà! Cảm ơn chị đã xem. Bên chị cần landing page cho dịp ra mắt menu mùa thu đúng không ạ?"],
+  ["dm-khoa", "u-ha", d(8, 20, 5), "Đúng rồi. Cần có giới thiệu menu, câu chuyện thương hiệu, đặt bàn và bản đồ 3 chi nhánh."],
+  ["dm-khoa", "u-ha", d(8, 20, 5), "Deadline lên sóng trước 25/10."],
+  ["dm-khoa", "u-khoa", d(8, 20, 9), "Em đề xuất chia 2 giai đoạn: thiết kế UI trên Figma trước, chị duyệt xong em mới code Next.js. Như vậy sửa sẽ rẻ hơn."],
+  ["dm-khoa", "u-ha", d(8, 20, 11), "Hợp lý. Báo giá giúp chị nhé?"],
+  ["dm-khoa", "u-khoa", d(8, 20, 16), "Thiết kế UI: 1.000 USDC (tối đa 2 lượt sửa). Code & bàn giao: 1.500 USDC. Tổng 2.500 USDC ạ."],
+  ["dm-khoa", "u-ha", d(9, 9, 30), "Chị trao đổi với team rồi, chốt chọn em nhé 🎉", 6],
+  ["dm-khoa", "u-khoa", d(9, 9, 34), "Tuyệt quá, cảm ơn chị! Mình bắt đầu từ thứ Hai được không ạ?"],
+  ["dm-khoa", "u-ha", d(9, 9, 36), "Ok. Lần trước chị thuê ngoài bị bỏ dở giữa chừng, lần này chị muốn mọi thứ rõ ràng từ đầu."],
 
-  ["nova-quan", "u-quan", d(9, 16, 20), "Chào chị, em gửi thêm showreel motion 2026 ạ."],
-  ["nova-quan", "u-ha", d(9, 16, 41), "Chị xem rồi, đẹp lắm. Tuần sau mình nói chuyện chi tiết nhé."],
-  ["nova-quan", "u-quan", d(10, 8, 12), "Dạ vâng, em rảnh từ thứ Ba ạ. Chị cần video dài bao nhiêu giây?"],
+  ["dm-quan", "u-quan", d(9, 16, 20), "Chào chị, em gửi thêm showreel motion 2026 ạ."],
+  ["dm-quan", "u-ha", d(9, 16, 41), "Chị xem rồi, đẹp lắm. Tuần sau mình nói chuyện chi tiết nhé."],
+  ["dm-quan", "u-quan", d(10, 8, 12), "Dạ vâng, em rảnh từ thứ Ba ạ. Chị cần video dài bao nhiêu giây?"],
 
-  ["nova-yen", "u-yen", d(9, 14, 5), "Chào Khoa, chị thấy em ứng tuyển job “Website Studio Yến”."],
-  ["nova-yen", "u-yen", d(10, 8, 40), "Em gửi chị case study gần nhất được không?"],
+  ["dm-yen", "u-yen", d(9, 14, 5), "Chào Khoa, chị thấy em ứng tuyển job “Website Studio Yến”."],
+  ["dm-yen", "u-yen", d(10, 8, 40), "Em gửi chị case study gần nhất được không?"],
 
   ["group-hcm", "u-tuan", d(10, 7, 50), "Có ai dùng thử Replyn chưa? Nghe nói khóa điều khoản + milestone ngay trong chat."],
   ["group-hcm", "u-mai", d(10, 7, 52), "Mình đang dùng cho một dự án nội dung. Có Nhật ký dự án nên lúc đối chiếu rõ ràng hơn hẳn."],
@@ -100,7 +100,7 @@ const seedMessages: Seed[] = [
   ["group-hcm", "u-bao", d(10, 8, 3), "Bên mình vừa nộp milestone 2 qua Replyn, file có hash nên khách không bảo “chưa nhận được” được nữa."],
   ["group-hcm", "u-tuan", d(10, 8, 6), "Hay đấy. Tối nay ai đi offline UniHackFest không?"],
 
-  ["channel-nova", "nova-team", d(9, 10, 0), "Replyn beta: chuyển từ Nova Chat sang dự án để xác nhận thỏa thuận, chia giai đoạn, nộp sản phẩm và theo dõi Nhật ký dự án. Cấp vốn, giải ngân và phí đều đang được mô phỏng. Replyn không giữ tiền thật."],
+  ["channel-replyn", "replyn-team", d(9, 10, 0), "Replyn beta: mở dự án ngay từ cuộc trò chuyện để xác nhận thỏa thuận, chia giai đoạn, nộp sản phẩm và theo dõi Nhật ký dự án. Cấp vốn, giải ngân và phí đều đang được mô phỏng. Replyn không giữ tiền thật."],
 ];
 
 function buildMessages(): Record<string, Message[]> {
@@ -124,7 +124,7 @@ function buildMessages(): Record<string, Message[]> {
 
 const mockFile = (name: string, size: number) => ({ name, size, hash: mockHash(name + size) });
 
-/** Giai đoạn của đề xuất mẫu mà Mộc Coffee đã gửi và Minh Khoa đã chấp nhận trên Nova. */
+/** Giai đoạn của đề xuất mẫu mà Mộc Coffee gửi cho Minh Khoa. */
 const MOC_MILESTONES: ProposalDraft["milestones"] = [
   {
     id: "ms-1",
@@ -148,7 +148,7 @@ const MOC_MILESTONES: ProposalDraft["milestones"] = [
 
 /** Workspace mẫu cho chat list — dựng bằng chính reducer để dữ liệu luôn nhất quán */
 const fillerActions: Action[] = [
-  // Đề xuất được tạo và chấp nhận trên Nova; Replyn chỉ mở workspace thực thi thỏa thuận đó.
+  // Thu Hà mở dự án ngay từ cuộc trò chuyện với Minh Khoa; hai bên còn phải xác nhận thỏa thuận.
   { type: "SET_CLOCK", at: d(9, 9, 40) },
   {
     type: "CREATE_WORKSPACE",
@@ -157,7 +157,7 @@ const fillerActions: Action[] = [
     businessId: "u-ha",
     freelancerId: "u-khoa",
     feeTier: "BASIC",
-    fromNova: "nova-khoa",
+    fromChat: "dm-khoa",
     draft: MOC_MILESTONES,
   },
   { type: "SET_CLOCK", at: d(1, 10, 0) },
@@ -209,7 +209,7 @@ const fillerActions: Action[] = [
     evidenceAttachmentIds: [],
   },
   { type: "SET_CLOCK", at: d(9, 11, 0) },
-  { type: "NOVA_REVIEW", wsId: "ws-tramay", disputeId: "d-0" },
+  { type: "TEAM_REVIEW", wsId: "ws-tramay", disputeId: "d-0" },
 ];
 
 export function initialState(): AppState {
@@ -228,7 +228,7 @@ export function initialState(): AppState {
   };
   for (const a of fillerActions) {
     // dispute id phụ thuộc seq, nên tra lại id thật trước khi dispatch
-    if (a.type === "NOVA_REVIEW") {
+    if (a.type === "TEAM_REVIEW") {
       const dId = s.workspaces[a.wsId].disputes[0].id;
       s = reducer(s, { ...a, disputeId: dId });
     } else s = reducer(s, a);
@@ -249,37 +249,7 @@ export function initialState(): AppState {
       [wsChatId("ws-lotus")]: { ...s.conversations[wsChatId("ws-lotus")], unread: 2 },
       [wsChatId("ws-tramay")]: { ...s.conversations[wsChatId("ws-tramay")], unread: 1 },
     },
-    ui: { ...s.ui, activeChatId: "nova-khoa", panelOpen: false },
-  };
-}
-
-/**
- * Trạng thái của phiên Nova thật (Business hoặc Talent): không có người, cuộc trò chuyện hay workspace mẫu.
- * Workspace thật được nạp sau bằng LOAD_NOVA_WORKSPACES. `now`: giờ thật của trình duyệt.
- */
-export function novaSessionState(viewer: { role: Role; name: string }, now: number): AppState {
-  return {
-    seq: 0,
-    clock: now,
-    role: viewer.role,
-    roleUser: { business: NOVA_ME, freelancer: NOVA_ME },
-    users: {
-      [SYSTEM_ID]: users[SYSTEM_ID],
-      [NOVA_TEAM_ID]: users[NOVA_TEAM_ID],
-      [NOVA_ME]: {
-        id: NOVA_ME,
-        name: viewer.name,
-        short: viewer.name,
-        title: viewer.role === "business" ? "Doanh nghiệp · Nova" : "Freelancer · Nova",
-        color: "#FFD33D",
-      },
-    },
-    conversations: {},
-    order: [],
-    messages: {},
-    workspaces: {},
-    looseFiles: {},
-    ui: { activeChatId: null, panelTab: "milestones", panelOpen: false, filter: "all", flashId: null },
+    ui: { ...s.ui, activeChatId: "dm-khoa", panelOpen: false },
   };
 }
 
@@ -291,12 +261,12 @@ export interface Scene {
   hint: string;
 }
 
-/** Đề xuất được gửi và chấp nhận trên Nova, nên mọi cảnh đều bắt đầu từ một workspace đã có. */
+/** Mọi cảnh bắt đầu từ workspace "Landing page Mộc Coffee" đã được mở từ cuộc trò chuyện. */
 export const SCENES: Scene[] = [
-  { id: 1, title: "Thỏa thuận từ Nova", hint: "Đề xuất đã được chấp nhận trên Nova; hai bên xem và xác nhận thỏa thuận" },
+  { id: 1, title: "Thỏa thuận dự án", hint: "Workspace vừa mở từ cuộc trò chuyện; hai bên xem và xác nhận thỏa thuận" },
   { id: 2, title: "Dự án và giai đoạn", hint: "Thỏa thuận đã xác nhận, giai đoạn 1 đã ký quỹ (mô phỏng)" },
   { id: 3, title: "Nộp sản phẩm", hint: "Nộp tệp và đối chiếu phiên bản trong mục Sản phẩm" },
-  { id: 4, title: "Yêu cầu hỗ trợ", hint: "Yêu cầu sửa, nộp lại và nhờ Đội ngũ Nova hỗ trợ" },
+  { id: 4, title: "Yêu cầu hỗ trợ", hint: "Yêu cầu sửa, nộp lại và nhờ Đội hỗ trợ Replyn" },
   { id: 5, title: "Phương án và nhật ký", hint: "Chia tiền 600/400 và xem Nhật ký dự án" },
 ];
 
@@ -338,7 +308,7 @@ export function buildScene(n: number): AppState {
       evidenceAttachmentIds: ws().attachments.map((a) => a.id),
     });
     run({ type: "SEND_TEXT", chatId: wsChatId(ws().id), senderId: "u-khoa", text: "Em đã làm đủ 6 section desktop + mobile theo tiêu chí. Font em dùng theo file guideline chị gửi ngày 9/10." });
-    run({ type: "NOVA_REVIEW", wsId: ws().id, disputeId: ws().disputes[0].id });
+    run({ type: "TEAM_REVIEW", wsId: ws().id, disputeId: ws().disputes[0].id });
   }
   if (n >= 5) {
     run({ type: "RESOLVE", wsId: ws().id, disputeId: ws().disputes[0].id, freelancerGross: 600 });

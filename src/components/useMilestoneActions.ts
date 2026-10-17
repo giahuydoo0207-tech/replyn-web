@@ -64,7 +64,7 @@ export function useMilestoneActions(ws: Workspace, ms: Milestone): { actions: Ms
     case "disputed":
       return {
         actions: [{ key: "view", label: "Xem hỗ trợ", variant: "danger", run: openDispute }],
-        waiting: "Đang tạm giữ, chờ Đội ngũ Nova",
+        waiting: "Đang tạm giữ, chờ Đội hỗ trợ Replyn",
       };
     default:
       return { actions: [] };

@@ -91,12 +91,6 @@ export function RightPanel({ onBack }: { onBack: () => void }) {
             <current.icon size={22} className="mt-0.5 shrink-0 text-ink-2" />
             <div><h2 className="text-lg font-semibold">{current.label}</h2><p className="mt-0.5 text-sm text-muted">{current.hint}</p></div>
           </div>
-          {ws.agreement && (tab === "milestones" || tab === "files" || tab === "dispute") && (
-            // Workspace thật: thỏa thuận đến từ Nova, còn ký quỹ, nộp sản phẩm và hỗ trợ chưa đồng bộ giữa hai bên.
-            <p className="-mt-2 mb-4 rounded-lg bg-white/[0.04] px-3 py-2 text-[13px] text-ink-2">
-              Các thao tác trong workspace là mô phỏng và chỉ lưu trên trình duyệt này.
-            </p>
-          )}
           {tab === "terms" && <TermsTab ws={ws} />}
           {tab === "milestones" && <MilestonesTab ws={ws} />}
           {tab === "files" && <FilesTab ws={ws} />}

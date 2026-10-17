@@ -19,7 +19,7 @@ export function DisputeTab({ ws }: { ws: Workspace }) {
           <p className="mt-2 font-semibold">Chưa có yêu cầu hỗ trợ</p>
           <p className="mt-1 text-sm text-ink-2">
             Khi có bất đồng, một bên có thể yêu cầu hỗ trợ cho giai đoạn liên quan. Giai đoạn sẽ được tạm giữ để hai bên
-            bổ sung thông tin trước khi Đội ngũ Nova đề xuất phương án xử lý.
+            bổ sung thông tin trước khi Đội hỗ trợ Replyn đề xuất phương án xử lý.
           </p>
         </div>
         <DisputePackCard ws={ws} />
@@ -94,11 +94,11 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
           </div>
           <div>
             <dt className="text-xs text-muted">Người review</dt>
-            <dd className="font-semibold">Đội ngũ Nova</dd>
+            <dd className="font-semibold">Đội hỗ trợ Replyn</dd>
           </div>
         </dl>
         <p className="mt-3 text-[13px] text-ink-2">
-          Giai đoạn được tạm giữ trong lúc hai bên bổ sung thông tin và Đội ngũ Nova đối chiếu thỏa thuận.
+          Giai đoạn được tạm giữ trong lúc hai bên bổ sung thông tin và Đội hỗ trợ Replyn đối chiếu thỏa thuận.
         </p>
       </section>
 
@@ -120,7 +120,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
       {resolved && ms.payout ? (
         <section className="rounded-xl bg-panel p-4">
           <h4 className="flex items-center gap-2 font-semibold">
-            <Gavel size={17} /> Quyết định của Đội ngũ Nova (mô phỏng)
+            <Gavel size={17} /> Quyết định của Đội hỗ trợ Replyn (mô phỏng)
           </h4>
           <PayoutRows ws={ws} ms={ms} gross={ms.payout.freelancerGross} tier={ws.feeTier} />
         </section>
@@ -128,7 +128,7 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
         <section className="rounded-xl bg-panel p-4">
           <div className="flex items-center justify-between gap-2">
             <h4 className="font-semibold">Mô phỏng quyết định</h4>
-            <Badge tone="muted">Thao tác của Đội ngũ Nova</Badge>
+            <Badge tone="muted">Thao tác của Đội hỗ trợ Replyn</Badge>
           </div>
           <p className="mt-1 text-[13px] text-ink-2">Bản demo cho phép trình diễn quyết định Release / Refund / Split.</p>
 
@@ -176,8 +176,8 @@ function DisputeCard({ ws, d }: { ws: Workspace; d: Dispute }) {
 
           <div className="mt-4 flex gap-2">
             {d.status === "open" ? (
-              <Button variant="secondary" className="flex-1" onClick={() => dispatch({ type: "NOVA_REVIEW", wsId: ws.id, disputeId: d.id })}>
-                Đội ngũ Nova bắt đầu review
+              <Button variant="secondary" className="flex-1" onClick={() => dispatch({ type: "TEAM_REVIEW", wsId: ws.id, disputeId: d.id })}>
+                Đội hỗ trợ Replyn bắt đầu xem xét
               </Button>
             ) : (
               <Button

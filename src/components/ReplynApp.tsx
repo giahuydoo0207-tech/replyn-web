@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { DemoAccount } from "@/lib/auth/accounts";
 import { StoreProvider, useStore } from "@/lib/store";
 import { ActionsProvider } from "./actions";
 import { ChatList } from "./ChatList";
@@ -9,10 +10,9 @@ import { RightPanel } from "./panel/RightPanel";
 import { Rail } from "./Rail";
 import { cx } from "./ui";
 
-/** `workspaceId`: mở thẳng workspace Nova đã được chấp nhận (route /workspace/{id}). */
-export function ReplynApp({ workspaceId }: { workspaceId?: string } = {}) {
+export function ReplynApp({ account }: { account: DemoAccount }) {
   return (
-    <StoreProvider workspaceId={workspaceId}>
+    <StoreProvider account={account}>
       <ActionsProvider>
         <Shell />
       </ActionsProvider>

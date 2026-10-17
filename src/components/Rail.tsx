@@ -15,10 +15,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ddmmyyyy, hhmm } from "@/lib/format";
 import { initials, visibleTo } from "@/lib/reducer";
 import { buildScene, initialState, SCENES } from "@/lib/seed";
-import { useNovaSession, useMe, useStore } from "@/lib/store";
-import type { Role } from "@/lib/types";
+import { useAccount, useMe, useStore } from "@/lib/store";
+import { AccountCard } from "./AccountCard";
 import { Avatar, cx, ReplynMark } from "./ui";
-import { NovaAccount } from "./NovaAccount";
 import { NavigationMenu } from "./NavigationMenu";
 
 const COLLAPSED = 64;
@@ -33,12 +32,7 @@ export function Rail() {
   const { state, dispatch } = useStore();
   const meId = useMe();
   const user = state.users[meId];
-  const { identity, realSession } = useNovaSession();
-  // vai của phiên thật hiển thị danh tính đã xác minh thay cho tài khoản mẫu; Talent không có Nova ID
-  const verified = identity && state.role === identity.role ? identity : null;
-  const account = verified
-    ? { name: verified.displayName, detail: verified.role === "business" ? verified.publicNovaId : "Nova Mobile đã xác minh", color: "#FFB65C" }
-    : { name: user.name, detail: state.role === "business" ? "Business" : "Freelancer", color: user.color };
+  const account = { name: user.name, detail: state.role === "business" ? "Business" : "Freelancer", color: user.color };
   const [hovered, setHovered] = useState(false);
   const [suppressHover, setSuppressHover] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -154,16 +148,13 @@ export function Rail() {
         </ul>
 
         <div className="mt-auto flex flex-col gap-1" ref={menuRef}>
-          {/* Phiên Nova thật không có cảnh demo, đổi vai hay đặt lại demo. */}
-          {!realSession && (
-            <RailItem
-              label="Demo"
-              icon={<Clapperboard size={21} />}
-              active={menu}
-              pinned={expanded}
-              run={() => setMenu((v) => !v)}
-            />
-          )}
+          <RailItem
+            label="Demo"
+            icon={<Clapperboard size={21} />}
+            active={menu}
+            pinned={expanded}
+            run={() => setMenu((v) => !v)}
+          />
           <button
             type="button"
             onClick={() => setMenu((v) => !v)}
@@ -175,7 +166,7 @@ export function Rail() {
             </span>
             <Label pinned={expanded} className="min-w-0 text-left">
               <span className="block max-w-[150px] truncate text-sm font-medium">{account.name}</span>
-              <span className={cx("block text-xs text-muted", verified?.role === "business" && "font-mono")}>{account.detail}</span>
+              <span className="block text-xs text-muted">{account.detail}</span>
             </Label>
           </button>
 
@@ -184,8 +175,6 @@ export function Rail() {
               // menu là con của nav nên khi trỏ chuột vào menu, rail vẫn ở trạng thái mở rộng
               left={EXPANDED + 8}
               onClose={() => setMenu(false)}
-              role={state.role}
-              setRole={(r: Role) => dispatch({ type: "SET_ROLE", role: r })}
             />
           )}
         </div>
@@ -256,54 +245,17 @@ function RailItem({
   );
 }
 
-function DemoMenu({
-  left,
-  onClose,
-  role,
-  setRole,
-}: {
-  left: number;
-  onClose: () => void;
-  role: Role;
-  setRole: (r: Role) => void;
-}) {
+function DemoMenu({ left, onClose }: { left: number; onClose: () => void }) {
   const { state, dispatch } = useStore();
-  const { identity, realSession } = useNovaSession();
-  if (realSession) {
-    return (
-      <div className="msg-in fixed bottom-3 z-50 w-80 rounded-2xl bg-panel p-3 shadow-2xl ring-1 ring-line" style={{ left }}>
-        {identity ? <NovaAccount /> : <p className="px-1 py-2 text-sm text-ink-2">Đang xác minh phiên Nova…</p>}
-      </div>
-    );
-  }
+  const { account } = useAccount();
   return (
     <div
       className="msg-in fixed bottom-3 z-50 max-h-[calc(100dvh-24px)] w-80 overflow-y-auto rounded-2xl bg-panel p-3 shadow-2xl ring-1 ring-line"
       style={{ left }}
     >
-      <NovaAccount className="mb-4" />
-      <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">Xem với vai trò</p>
-      <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl bg-rail p-1">
-        {(["business", "freelancer"] as Role[]).map((r) => {
-          const u = state.users[state.roleUser[r]];
-          return (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRole(r)}
-              className={cx(
-                "rounded-lg px-2 py-2 text-left transition-colors",
-                role === r ? "bg-white/12 text-ink" : "text-ink-2 hover:bg-white/6",
-              )}
-            >
-              <span className="block text-sm font-semibold">{r === "business" ? "Business" : "Freelancer"}</span>
-              <span className="block truncate text-xs opacity-80">{identity?.role === r ? identity.displayName : u.name}</span>
-            </button>
-          );
-        })}
-      </div>
+      <AccountCard className="mb-4" />
 
-      <p className="mt-4 flex items-baseline justify-between px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+      <p className="flex items-baseline justify-between px-1 text-xs font-semibold uppercase tracking-wide text-muted">
         Tua thời gian
         <span className="font-normal normal-case tabular-nums tracking-normal">
           Bây giờ: {hhmm(state.clock)}, {ddmmyyyy(state.clock)}
@@ -334,7 +286,7 @@ function DemoMenu({
             <button
               type="button"
               onClick={() => {
-                dispatch({ type: "REPLACE", state: { ...buildScene(sc.id), role } });
+                dispatch({ type: "REPLACE", state: { ...buildScene(sc.id), role: account.role } });
                 onClose();
               }}
               className="flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/6"

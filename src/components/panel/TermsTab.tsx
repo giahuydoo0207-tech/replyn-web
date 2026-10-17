@@ -1,14 +1,13 @@
 "use client";
 
-import { FileCheck, Lock, LockOpen } from "lucide-react";
+import { Lock, LockOpen } from "lucide-react";
 import { FEE_LABEL, usdc } from "@/lib/fees";
 import { ddmmyyyy, hhmm } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import type { Workspace } from "@/lib/types";
 import { Button } from "../ui";
-import { SealCard } from "./SealCard";
+import { AgreementCard } from "./AgreementCard";
 import { VersionPanel } from "./ScopeChange";
-import { currentVersion } from "@/lib/scopeChange";
 
 export function TermsTab({ ws }: { ws: Workspace }) {
   const { state, dispatch } = useStore();
@@ -16,53 +15,17 @@ export function TermsTab({ ws }: { ws: Workspace }) {
   const biz = state.users[ws.businessId];
   const fl = state.users[ws.freelancerId];
 
-  const agreement = ws.agreement;
-
-  const version = currentVersion(ws);
-
   return (
     <div className="space-y-4">
       <VersionPanel ws={ws} />
-      {agreement && (
-        <section className="rounded-xl bg-panel p-4" aria-label="Thỏa thuận từ Nova">
-          <div className="flex items-center gap-2">
-            <FileCheck size={16} className="text-ink-2" />
-            <h3 className="text-[15px] font-semibold">Thỏa thuận từ Nova</h3>
-          </div>
-          <p className="mt-1 text-[13px] text-ink-2">
-            {biz.name} gửi đề xuất trên Nova, {fl.name} chấp nhận ngày {ddmmyyyy(agreement.acceptedAt)}. Replyn thực hiện đúng thỏa thuận này.
-          </p>
-          {version > 1 && (
-            <p className="mt-2 rounded-lg bg-yellow/[0.07] px-3 py-2 text-[13px] text-ink-2 ring-1 ring-yellow/20">
-              Đây là bản gốc (phiên bản 1). Các giai đoạn bên dưới đã được cập nhật theo phiên bản {version}.
-            </p>
-          )}
-          <p className="mt-3 whitespace-pre-wrap text-[14px]">{agreement.scope}</p>
-          <dl className="mt-3 grid grid-cols-3 gap-2 text-[13px]">
-            <Stat k="Tổng ngân sách" v={usdc(agreement.totalAmount)} />
-            <Stat k="Bắt đầu" v={isoDate(agreement.startDate)} />
-            <Stat k="Deadline" v={isoDate(agreement.deadline)} />
-          </dl>
-          {agreement.deliverables.length > 0 && <List title="Sản phẩm bàn giao" items={agreement.deliverables} />}
-          {agreement.notes && <List title="Ghi chú" items={[agreement.notes]} />}
-          <p className="mt-3 text-[12px] text-muted">Cấp vốn, giải ngân và phí hiện đang được mô phỏng. Nova và Replyn chưa giữ tiền thật.</p>
-        </section>
-      )}
-      {agreement && <SealCard workspaceId={agreement.novaWorkspaceId} />}
       <section className="rounded-xl bg-panel p-4">
         <div className="flex items-center gap-2">
           {locked ? <Lock size={16} className="text-ink-2" /> : <LockOpen size={16} className="text-amber" />}
           <h3 className="text-[15px] font-semibold">
-            {agreement ? "Thỏa thuận đã khóa" : locked ? "Thỏa thuận đã xác nhận" : "Thỏa thuận chưa xác nhận"}
+            {locked ? "Thỏa thuận đã xác nhận" : "Thỏa thuận chưa xác nhận"}
           </h3>
         </div>
-        {agreement ? (
-          // Đề xuất đã được chấp nhận trên Nova: thỏa thuận khóa từ lúc đó cho cả hai bên, không cần xác nhận lại.
-          <p className="mt-1 text-[13px] text-ink-2">
-            Đã khóa khi {fl.name} chấp nhận đề xuất trên Nova · {ddmmyyyy(agreement.acceptedAt)} {hhmm(agreement.acceptedAt)}
-            <span className="block text-muted">Không thể sửa đơn phương.</span>
-          </p>
-        ) : locked ? (
+        {locked ? (
           <p className="mt-1 text-[13px] text-ink-2">
             Hai bên đã xác nhận. Không thể sửa đơn phương.
             <span className="block text-muted">
@@ -85,7 +48,9 @@ export function TermsTab({ ws }: { ws: Workspace }) {
           <Line k="Người thực hiện" v={fl.name} />
           <Line k="Gói phí" v={FEE_LABEL[ws.feeTier]} />
         </dl>
+        <p className="mt-3 text-[12px] text-muted">Cấp vốn, giải ngân và phí hiện đang được mô phỏng. Replyn chưa giữ tiền thật.</p>
       </section>
+      <AgreementCard ws={ws} />
 
       {ws.milestones.map((m, i) => (
         <section key={m.id} className="rounded-xl bg-panel p-4">
@@ -108,12 +73,6 @@ export function TermsTab({ ws }: { ws: Workspace }) {
       ))}
     </div>
   );
-}
-
-/** "2026-11-10" -> "10/11/2026" */
-function isoDate(value: string | null) {
-  const match = value ? /^(\d{4})-(\d{2})-(\d{2})/.exec(value) : null;
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : "—";
 }
 
 function List({ title, items }: { title: string; items: string[] }) {

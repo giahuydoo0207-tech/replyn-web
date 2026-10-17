@@ -61,7 +61,7 @@ export function dueReminders(
     const due = deadlineDay(m.deadline);
     if (wait && due !== null) {
       const left = due - today;
-      const locked = !!(ws.termsLockedAt || ws.agreement);
+      const locked = !!ws.termsLockedAt;
       const action = !locked
         ? "Đang chờ hai bên xác nhận thỏa thuận."
         : wait === "fund"

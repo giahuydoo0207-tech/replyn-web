@@ -4,7 +4,9 @@
  *
  * Tin đã thu hồi trong workspace vẫn có trong hồ sơ (đúng như Lưu trữ dự án), vì đây là bối cảnh hợp đồng.
  */
-import { findAttachment, NOVA_TEAM_ID, STATUS_LABEL, SYSTEM_ID, type AppState } from "./reducer";
+import { findAttachment, TEAM_ID, STATUS_LABEL, SYSTEM_ID, type AppState } from "./reducer";
+import { agreementNo } from "./agreement/agreement";
+import { agreementFromWorkspace } from "./agreement/fromWorkspace";
 import { currentVersion } from "./scopeChange";
 import type { ChangeOp, Message, ScopeChangeStatus } from "./types";
 
@@ -73,7 +75,7 @@ export function buildDisputePack(state: AppState, wsId: string, now = Date.now()
   // Lưu trữ tin nhắn: trao đổi trước khi chốt (nếu có) rồi hội thoại trong workspace; bỏ thông báo hệ thống.
   const chat = Object.values(state.conversations).find((c) => c.workspaceId === ws.id);
   const userMsgs = (list: Message[] | undefined) =>
-    (list ?? []).filter((m) => ["text", "file", "submission", "change"].includes(m.kind) && m.senderId !== SYSTEM_ID && m.senderId !== NOVA_TEAM_ID);
+    (list ?? []).filter((m) => ["text", "file", "submission", "change"].includes(m.kind) && m.senderId !== SYSTEM_ID && m.senderId !== TEAM_ID);
   const toPack = (chapter: PackMessage["chapter"]) => (m: Message): PackMessage => ({
     at: iso(m.at),
     chapter,
@@ -83,19 +85,20 @@ export function buildDisputePack(state: AppState, wsId: string, now = Date.now()
     pinned: !!m.pinnedAt && !m.recalledAt,
     recalledAt: m.recalledAt ? iso(m.recalledAt) : null,
   });
-  const before = userMsgs(chat?.sourceNovaChatId ? state.messages[chat.sourceNovaChatId] : undefined).map(toPack("before"));
+  const before = userMsgs(chat?.sourceChatId ? state.messages[chat.sourceChatId] : undefined).map(toPack("before"));
   const during = userMsgs(chat ? state.messages[chat.id] : undefined).map(toPack("during"));
 
-  const a = ws.agreement;
+  // Thỏa thuận hiện hành dựng lại từ các giai đoạn, cùng nguồn với dấu vân tay ở tab Thỏa thuận.
+  const a = agreementFromWorkspace(state, ws);
   return {
     format: DISPUTE_PACK_FORMAT,
     generatedAt: iso(now),
     workspace: {
-      id: a?.novaWorkspaceId ?? ws.id,
+      id: ws.id,
       title: ws.title,
       client: name(ws.businessId),
       contractor: name(ws.freelancerId),
-      agreementNo: a ? `RPL-${a.novaWorkspaceId.slice(0, 8).toUpperCase()}` : null,
+      agreementNo: a ? agreementNo(ws.id) : null,
     },
     agreement: {
       version: currentVersion(ws),
@@ -108,7 +111,7 @@ export function buildDisputePack(state: AppState, wsId: string, now = Date.now()
             currency: a.currency,
             startDate: a.startDate,
             deadline: a.deadline,
-            acceptedAt: iso(a.acceptedAt),
+            acceptedAt: a.acceptedAt,
           }
         : null,
       changes: (ws.changes ?? []).map((c) => ({

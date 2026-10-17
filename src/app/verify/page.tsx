@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { VerifyPage } from "@/components/seal/VerifyPage";
+import { VerifyPage } from "@/components/verify/VerifyPage";
 
 export const metadata: Metadata = {
   title: "Kiểm chứng thỏa thuận - Replyn",

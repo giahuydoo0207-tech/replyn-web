@@ -23,7 +23,7 @@ export function noticeText(s: AppState, m: Message): string {
     case "dispute":
       return `Đã yêu cầu hỗ trợ · Giai đoạn ${idx}`;
     case "decision":
-      return `Đội ngũ Nova đã đưa ra phương án xử lý${ms?.payout ? ` · ${DECISION_LABEL[ms.payout.decision]} (mô phỏng)` : ""}`;
+      return `Đội hỗ trợ Replyn đã đưa ra phương án xử lý${ms?.payout ? ` · ${DECISION_LABEL[ms.payout.decision]} (mô phỏng)` : ""}`;
     default:
       return m.text ?? "";
   }

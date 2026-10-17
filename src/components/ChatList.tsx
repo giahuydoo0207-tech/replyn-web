@@ -4,9 +4,9 @@ import { BellOff, CheckCheck, Megaphone, Menu, MessageSquarePlus, MoreVertical, 
 import { useMemo, useState } from "react";
 import { listTime } from "@/lib/format";
 import { previewOf } from "@/lib/preview";
-import { SYSTEM_ID, visibleTo, workspaceHeadline, type ListFilter } from "@/lib/reducer";
+import { chatFace, SYSTEM_ID, visibleTo, workspaceHeadline, type ListFilter } from "@/lib/reducer";
 import { milestonesNeedingMe, openDisputes } from "@/lib/protection";
-import { useMe, useNovaSession, useStore } from "@/lib/store";
+import { useMe, useStore } from "@/lib/store";
 import type { Conversation } from "@/lib/types";
 import { Avatar, cx, IconButton, StatusBadge } from "./ui";
 import { NavigationMenu } from "./NavigationMenu";
@@ -28,8 +28,6 @@ function KindIcon({ conv }: { conv: Conversation }) {
 export function ChatList({ onOpen }: { onOpen?: () => void }) {
   const { state, dispatch } = useStore();
   const meId = useMe();
-  const { realSession, workspacesLoaded } = useNovaSession();
-  const noWorkspaces = realSession && Object.keys(state.workspaces).length === 0;
   const [q, setQ] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const { filter, activeChatId } = state.ui;
@@ -42,13 +40,13 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
     return pinnedFirst.filter((id) => {
       if (!visibleTo(state, id)) return false;
       const c = state.conversations[id];
-      if (c.kind === "replyn" && c.sourceNovaChatId) return false;
+      if (c.kind === "replyn" && c.sourceChatId) return false;
       const linked = c.linkedWorkspaceChatId ? state.conversations[c.linkedWorkspaceChatId] : undefined;
       const wsId = c.workspaceId ?? linked?.workspaceId;
       const ws = wsId ? state.workspaces[wsId] : undefined;
       const msgs = [...(state.messages[id] ?? []), ...(linked ? state.messages[linked.id] ?? [] : [])];
       if (needle) {
-        const hay = (c.title + " " + msgs.map((m) => (m.recalledAt ? "" : m.text ?? "")).join(" ")).toLowerCase();
+        const hay = (chatFace(state, c).title + " " + msgs.map((m) => (m.recalledAt ? "" : m.text ?? "")).join(" ")).toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       switch (filter) {
@@ -74,7 +72,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
     f === "unread" ? state.order.filter((id) => {
       if (!visibleTo(state, id)) return false;
       const c = state.conversations[id];
-      if (c.kind === "replyn" && c.sourceNovaChatId) return false;
+      if (c.kind === "replyn" && c.sourceChatId) return false;
       const linkedUnread = c.linkedWorkspaceChatId ? state.conversations[c.linkedWorkspaceChatId]?.unread ?? 0 : 0;
       return c.unread + linkedUnread > 0;
     }).length : 0;
@@ -134,11 +132,7 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
       <ul className="thin-scroll flex-1 overflow-y-auto px-2 pb-3">
         {items.length === 0 && (
           <li className="px-6 py-12 text-center text-sm text-ink-2">
-            {noWorkspaces && !workspacesLoaded
-              ? "Đang tải workspace từ Nova…"
-              : noWorkspaces
-              ? "Chưa có workspace nào. Workspace sẽ xuất hiện khi đề xuất trên Nova được chấp nhận."
-              : "Không có cuộc trò chuyện nào khớp bộ lọc."}
+            Không có cuộc trò chuyện nào khớp bộ lọc.
           </li>
         )}
         {items.map((id) => {
@@ -170,11 +164,11 @@ export function ChatList({ onOpen }: { onOpen?: () => void }) {
                   active ? "bg-active" : "hover:bg-hover",
                 )}
               >
-                <Avatar {...c.avatar} size={48} />
+                <Avatar {...chatFace(state, c).avatar} size={48} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <KindIcon conv={c} />
-                    <span className="truncate text-[15px] font-medium">{c.title}</span>
+                    <span className="truncate text-[15px] font-medium">{chatFace(state, c).title}</span>
                     <span
                       className={cx(
                         "ml-auto shrink-0 pl-2 text-xs",

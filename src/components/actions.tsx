@@ -275,7 +275,7 @@ function DisputeDialog({ target, onClose }: { target: Target; onClose: () => voi
     >
       <MilestoneLine t={target} />
       <p className="mb-3 rounded-xl bg-danger/10 px-3.5 py-2.5 text-sm text-[#ffb3b3] ring-1 ring-danger/30">
-        Giai đoạn sẽ được tạm giữ. Hai bên có thể bổ sung thông tin trước khi Đội ngũ Nova đề xuất phương án xử lý.
+        Giai đoạn sẽ được tạm giữ. Hai bên có thể bổ sung thông tin trước khi Đội hỗ trợ Replyn đề xuất phương án xử lý.
       </p>
       <textarea rows={3} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} className={textarea} placeholder="Mô tả bất đồng và thỏa thuận cần đối chiếu" aria-label="Nội dung cần hỗ trợ" />
       {pack && (
