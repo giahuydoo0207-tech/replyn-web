@@ -10,7 +10,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Replyn — Workspace làm việc có bằng chứng",
   description:
-    "Nova giúp hai bên gặp nhau. Replyn giúp hai bên tin nhau để làm việc.",
+    "Chat, thỏa thuận dự án và bằng chứng ở cùng một nơi. Replyn giúp hai bên tin nhau để làm việc.",
 };
 
 export const viewport: Viewport = {

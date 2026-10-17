@@ -6,10 +6,10 @@ import {
   BellOff,
   ChevronRight,
   FilePen,
+  FolderPlus,
   Image as ImageIcon,
   LibraryBig,
   Mail,
-  Lock,
   MoreVertical,
   Paperclip,
   Pin,
@@ -25,13 +25,14 @@ import { usdc } from "@/lib/fees";
 import { sha256Hex } from "@/lib/format";
 import { previewOf } from "@/lib/preview";
 import { nextAction } from "@/lib/protection";
-import { pinnedMessages } from "@/lib/reducer";
+import { chatFace, pinnedMessages } from "@/lib/reducer";
 import { jumpToMessage, useActiveChat, useMe, useStore } from "@/lib/store";
 import type { Conversation, Message, Workspace } from "@/lib/types";
 import { useWorkspaceActions } from "../actions";
 import { Avatar, cx, IconButton, ReplynMark } from "../ui";
 import { MessageList } from "./Messages";
 import { ProposeChangeDialog } from "../panel/ScopeChange";
+import { OpenProjectDialog } from "./OpenProjectDialog";
 import { pendingChange } from "@/lib/scopeChange";
 
 export function ChatView({ onBack }: { onBack?: () => void }) {
@@ -77,7 +78,7 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
   const shownMessages = searchQuery.trim()
     ? messages.filter((m) => !m.recalledAt && (m.text ?? "").toLowerCase().includes(searchQuery.trim().toLowerCase()))
     : messages;
-  const sourceChat = conv.sourceNovaChatId ? state.conversations[conv.sourceNovaChatId] : undefined;
+  const sourceChat = conv.sourceChatId ? state.conversations[conv.sourceChatId] : undefined;
 
   // Icon bìa: mở hồ sơ dự án (Công cụ dự án) ở tab Lưu trữ, có hiệu ứng mở bìa.
   const openBinder = () => {
@@ -102,7 +103,7 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
   };
 
   return (
-    <section aria-label={`Trò chuyện: ${sourceChat?.title ?? conv.title}`} className="relative isolate flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
+    <section aria-label={`Trò chuyện: ${chatFace(state, sourceChat ?? conv).title}`} className="relative isolate flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
       <ChatHeader
         conv={conv}
         ws={ws}
@@ -132,12 +133,6 @@ export function ChatView({ onBack }: { onBack?: () => void }) {
         }}
       >
         <div ref={scroller} className="thin-scroll absolute inset-0 overflow-y-auto">
-          {conv.kind === "nova" && (
-            <p className="mx-auto mt-4 flex w-fit max-w-[90%] items-start gap-1.5 rounded-lg bg-notice/95 px-3 py-1.5 text-center text-xs text-ink-2">
-              <Lock size={12} className="mt-0.5 shrink-0" />
-              Lịch sử trao đổi trên Nova, chỉ để xem. Đề xuất được doanh nghiệp gửi và freelancer phản hồi trên Nova.
-            </p>
-          )}
           <MessageList conv={conv} messages={shownMessages} />
           {searchQuery.trim() && shownMessages.length === 0 && <p className="mx-auto mt-12 w-fit rounded-lg bg-notice px-3 py-2 text-sm text-ink-2">Không tìm thấy tin nhắn phù hợp.</p>}
         </div>
@@ -170,9 +165,9 @@ function ChatHeader({ conv, ws, onBack, onSearch, onOpenBinder }: { conv: Conver
   const { state } = useStore();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const sourceChat = conv.sourceNovaChatId ? state.conversations[conv.sourceNovaChatId] : undefined;
+  const sourceChat = conv.sourceChatId ? state.conversations[conv.sourceChatId] : undefined;
   const linkedWorkspace = conv.linkedWorkspaceChatId ? state.conversations[conv.linkedWorkspaceChatId] : undefined;
-  const displayConv = sourceChat ?? conv;
+  const displayConv = chatFace(state, sourceChat ?? conv);
 
   useEffect(() => {
     if (!menu) return;
@@ -191,14 +186,14 @@ function ChatHeader({ conv, ws, onBack, onSearch, onOpenBinder }: { conv: Conver
       <div className="min-w-0 flex-1">
         <h2 className="flex items-center gap-2 text-[16px] font-semibold leading-tight">
           <span className="truncate">{displayConv.title}</span>
-          {(sourceChat || linkedWorkspace || conv.kind === "nova") && (
+          {(sourceChat || linkedWorkspace) && (
             <span className="hidden shrink-0 rounded bg-white/6 px-1.5 text-[11px] font-medium text-ink-2 sm:inline">
-              {ws ? "Hồ sơ công việc" : linkedWorkspace ? "Hội thoại" : "Nova Chat"}
+              {ws ? "Hồ sơ công việc" : "Hội thoại"}
             </span>
           )}
         </h2>
         <p className="truncate text-[13px] text-muted">
-          {ws ? ws.title : linkedWorkspace?.workspaceId ? `Dự án · ${state.workspaces[linkedWorkspace.workspaceId]?.title ?? linkedWorkspace.title}` : conv.kind === "nova" ? "vừa truy cập" : conv.subtitle}
+          {ws ? ws.title : linkedWorkspace?.workspaceId ? `Dự án · ${state.workspaces[linkedWorkspace.workspaceId]?.title ?? linkedWorkspace.title}` : conv.subtitle}
         </p>
       </div>
       <div className="relative flex shrink-0 items-center gap-0.5" ref={menuRef}>
@@ -343,11 +338,12 @@ function Composer({
   onFile: (f: File) => void;
   onSubmitWork: () => void;
 }) {
-  const { dispatch } = useStore();
+  const { state, dispatch } = useStore();
   const meId = useMe();
   const [text, setText] = useState("");
   const [menu, setMenu] = useState(false);
   const [proposing, setProposing] = useState(false);
+  const [opening, setOpening] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
@@ -370,19 +366,10 @@ function Composer({
   if (conv.kind === "channel") {
     return (
       <div className="shrink-0 border-t border-white/5 bg-sidebar px-4 py-4 text-center text-sm text-muted">
-        Chỉ Đội ngũ Nova có thể đăng trong kênh này
+        Chỉ Đội hỗ trợ Replyn có thể đăng trong kênh này
       </div>
     );
   }
-  // Hội thoại chỉ-xem (dữ liệu mẫu): trao đổi trước khi có workspace.
-  if (conv.kind === "nova") {
-    return (
-      <div className="shrink-0 border-t border-white/5 bg-sidebar px-4 py-4 text-center text-sm text-muted">
-        Lịch sử trao đổi chỉ để xem.
-      </div>
-    );
-  }
-
   const send = () => {
     const t = text.trim();
     if (!t) return;
@@ -390,7 +377,7 @@ function Composer({
     setText("");
   };
 
-  type ItemId = "file" | "image" | "submit" | "change";
+  type ItemId = "file" | "image" | "submit" | "change" | "project";
   type Item = { id: ItemId; label: string; hint?: string; icon: ReactNode; disabled?: boolean; accent?: boolean };
   const items: Item[] = [
     { id: "file", label: "Gửi tệp", icon: <Paperclip size={18} /> },
@@ -400,7 +387,7 @@ function Composer({
     items.push({ id: "submit", label: "Nộp sản phẩm", hint: "Gắn vào milestone đang chạy", icon: <Upload size={18} />, accent: true });
   }
   // Lối tắt đổi phạm vi ngay trong lúc nhắn tin; chỉ hai bên của workspace đã chốt thỏa thuận mới thấy.
-  if (ws && (ws.termsLockedAt || ws.agreement) && (meId === ws.businessId || meId === ws.freelancerId)) {
+  if (ws && ws.termsLockedAt && (meId === ws.businessId || meId === ws.freelancerId)) {
     const waiting = !!pendingChange(ws);
     items.push({
       id: "change",
@@ -410,8 +397,15 @@ function Composer({
       disabled: waiting,
     });
   }
+  // Chat trực tiếp chưa có dự án: doanh nghiệp mở dự án với người còn lại.
+  const partnerId = conv.kind === "direct" ? conv.memberIds.find((id) => id !== meId) : undefined;
+  const canOpenProject = !!partnerId && !conv.linkedWorkspaceChatId && state.role === "business";
+  if (canOpenProject) {
+    items.push({ id: "project", label: "Mở dự án", hint: "Chốt phạm vi, giai đoạn và ký quỹ trên Replyn", icon: <FolderPlus size={18} />, accent: true });
+  }
   const runItem = (id: ItemId) => {
-    if (id === "file") fileInput.current?.click();
+    if (id === "project") setOpening(true);
+    else if (id === "file") fileInput.current?.click();
     else if (id === "image") imageInput.current?.click();
     else if (id === "change") setProposing(true);
     else onSubmitWork();
@@ -493,6 +487,7 @@ function Composer({
         <input ref={imageInput} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
       </div>
       {proposing && ws && <ProposeChangeDialog ws={ws} onClose={() => setProposing(false)} />}
+      {opening && partnerId && <OpenProjectDialog conv={conv} businessId={meId} freelancerId={partnerId} onClose={() => setOpening(false)} />}
     </div>
   );
 }
@@ -506,7 +501,7 @@ function EmptyState() {
       <h2 className="mt-5 text-2xl font-bold">Replyn</h2>
       <p className="mt-2 max-w-md text-[15px] text-ink-2">Chat, thỏa thuận dự án và bằng chứng ở cùng một nơi.</p>
       <p className="mt-6 max-w-sm text-sm text-muted">
-        Chọn một workspace để theo dõi tiến độ. Workspace mới xuất hiện khi freelancer chấp nhận đề xuất mà doanh nghiệp gửi trên Nova.
+        Chọn một cuộc trò chuyện. Khi hai bên thống nhất, doanh nghiệp mở dự án ngay trong cuộc trò chuyện để chốt thỏa thuận và theo dõi tiến độ.
       </p>
     </section>
   );

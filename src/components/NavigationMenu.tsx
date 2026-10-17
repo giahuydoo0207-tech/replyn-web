@@ -1,11 +1,11 @@
 "use client";
 
-import { Briefcase, ChevronRight, FileText, ListTodo, MessageCircle, Search, UserRound, X } from "lucide-react";
+import { Briefcase, ChevronRight, FileText, ListTodo, MessageCircle, Search, X } from "lucide-react";
 import { useEffect, useRef, type ComponentType } from "react";
-import { initials, type ListFilter } from "@/lib/reducer";
-import { useNovaSession, useMe, useStore } from "@/lib/store";
-import { Avatar, IconButton } from "./ui";
-import { NovaAccount } from "./NovaAccount";
+import { type ListFilter } from "@/lib/reducer";
+import { useStore } from "@/lib/store";
+import { AccountCard } from "./AccountCard";
+import { IconButton } from "./ui";
 
 type MenuItem = { label: string; hint: string; icon: ComponentType<{ size?: number; className?: string }>; filter?: ListFilter };
 
@@ -22,9 +22,7 @@ const SECTIONS: { title: string; items: MenuItem[] }[] = [
 ];
 
 export function NavigationMenu({ onClose }: { onClose: () => void }) {
-  const { state, dispatch } = useStore();
-  const user = state.users[useMe()];
-  const { identity } = useNovaSession();
+  const { dispatch } = useStore();
   const dialog = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,19 +53,8 @@ export function NavigationMenu({ onClose }: { onClose: () => void }) {
       <button className="absolute inset-0 bg-black/55" aria-label="Đóng nền menu" tabIndex={-1} onClick={onClose} />
       <div ref={dialog} role="dialog" aria-modal="true" aria-label="Menu Replyn" className="navigation-drawer relative flex h-full w-[336px] max-w-[92vw] flex-col overflow-y-auto border-r border-line bg-sidebar shadow-2xl">
         <div className="border-b border-line p-5">
-          {identity && state.role === identity.role ? (
-            // phiên Nova thật: danh tính đã xác minh và lệnh đăng xuất thay cho tài khoản mẫu
-            <>
-              <div className="mb-3 flex justify-end"><IconButton label="Đóng menu" onClick={onClose}><X size={20} /></IconButton></div>
-              <NovaAccount />
-            </>
-          ) : (
-            <>
-              <div className="mb-4 flex items-center justify-between"><Avatar initials={initials(user.name)} bg="#233138" fg={user.color} size={52} /><IconButton label="Đóng menu" onClick={onClose}><X size={20} /></IconButton></div>
-              <div className="flex items-center gap-2"><UserRound size={17} className="text-muted" /><div><p className="font-semibold">{user.name}</p><p className="mt-0.5 text-sm text-muted">{state.role === "business" ? "Doanh nghiệp" : "Người thực hiện"}</p></div></div>
-              <NovaAccount className="mt-4" />
-            </>
-          )}
+          <div className="mb-3 flex justify-end"><IconButton label="Đóng menu" onClick={onClose}><X size={20} /></IconButton></div>
+          <AccountCard />
         </div>
         {SECTIONS.map((section) => (
           <section key={section.title} className="border-b border-line p-2">

@@ -3,7 +3,7 @@
 import { Archive, ArrowUpRight, Film, Image as ImageIcon, Link2, Paperclip, Pin, Undo2, type LucideIcon } from "lucide-react";
 import { type ArchiveFilter, extractLinks, isMedia, isVideoName, matchesFilter } from "@/lib/archive";
 import { ddmmyyyy, hhmm } from "@/lib/format";
-import { findAttachment, NOVA_TEAM_ID, SYSTEM_ID } from "@/lib/reducer";
+import { findAttachment, TEAM_ID, SYSTEM_ID } from "@/lib/reducer";
 import { jumpToMessage, useStore } from "@/lib/store";
 import type { Message, Workspace } from "@/lib/types";
 import { LinkedText } from "../LinkedText";
@@ -21,7 +21,7 @@ const FILTERS: { id: ArchiveFilter; label: string; icon: LucideIcon; empty: stri
 /** Tin của người dùng (không tính thông báo hệ thống), theo thứ tự thời gian. */
 const saved = (list: Message[] | undefined) =>
   (list ?? []).filter(
-    (m) => ["text", "file", "submission"].includes(m.kind) && m.senderId !== SYSTEM_ID && m.senderId !== NOVA_TEAM_ID,
+    (m) => ["text", "file", "submission"].includes(m.kind) && m.senderId !== SYSTEM_ID && m.senderId !== TEAM_ID,
   );
 
 /**
@@ -33,7 +33,7 @@ export function ArchiveTab({ ws }: { ws: Workspace }) {
   const filter = state.ui.archiveFilter ?? "all";
   const setFilter = (f: ArchiveFilter) => dispatch({ type: "SET_PANEL", archiveFilter: f });
   const wsChat = Object.values(state.conversations).find((c) => c.workspaceId === ws.id);
-  const before = saved(wsChat?.sourceNovaChatId ? state.messages[wsChat.sourceNovaChatId] : undefined);
+  const before = saved(wsChat?.sourceChatId ? state.messages[wsChat.sourceChatId] : undefined);
   const during = saved(wsChat ? state.messages[wsChat.id] : undefined);
   const attachmentOf = (m: Message) => (m.kind !== "text" ? findAttachment(state, m.refs?.attachmentId) : undefined);
   const count = (f: ArchiveFilter) => [...before, ...during].filter((m) => matchesFilter(f, m, attachmentOf(m))).length;

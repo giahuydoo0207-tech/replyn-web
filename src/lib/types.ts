@@ -91,7 +91,7 @@ export type EvidenceType =
   | "resubmitted"
   | "accepted"
   | "dispute_opened"
-  | "nova_review"
+  | "team_review"
   | "decision"
   | "released"
   | "scope_changed";
@@ -120,8 +120,6 @@ export interface Workspace {
   submissions: Submission[];
   disputes: Dispute[];
   evidence: EvidenceEvent[];
-  /** Có khi workspace được mở từ đề xuất Nova thật (không phải dữ liệu mẫu). */
-  agreement?: NovaAgreement;
   /** Phiên bản thỏa thuận hiện hành: 1 là bản gốc, tăng mỗi lần hai bên đồng ý đổi phạm vi. */
   version?: number;
   /** Các đề xuất đổi phạm vi, cũ trước mới sau. Mỗi lúc chỉ có tối đa một đề xuất đang chờ. */
@@ -189,7 +187,7 @@ export interface MessageRefs {
 export interface Message {
   id: string;
   chatId: string;
-  senderId: string; // user id | "replyn" | "nova-team"
+  senderId: string; // user id | "replyn" | "replyn-team"
   at: number;
   kind: MessageKind;
   text?: string;
@@ -206,36 +204,17 @@ export interface Message {
   tone?: "info" | "warning" | "danger";
 }
 
-/** Giai đoạn của một đề xuất đã được chấp nhận trên Nova, dùng để dựng workspace. */
+/** Giai đoạn của một đề xuất dự án, dùng để dựng workspace. */
 export interface ProposalDraft {
   projectTitle: string;
   feeTier: FeeTier;
   milestones: Pick<Milestone, "id" | "title" | "amount" | "deadline" | "criteria" | "scope" | "deliverables">[];
 }
 
-/**
- * Thỏa thuận gốc: doanh nghiệp đề xuất trong Nova, freelancer chấp nhận trong Nova Mobile. Replyn chỉ hiển thị
- * và thực thi thỏa thuận này, không bao giờ tạo đề xuất.
- */
-export interface NovaAgreement {
-  /** id workspace mờ do Nova cấp khi đề xuất được chấp nhận */
-  novaWorkspaceId: string;
-  scope: string;
-  deliverables: string[];
-  notes: string;
-  totalAmount: number;
-  currency: string;
-  startDate: string | null;
-  deadline: string | null;
-  /** Thời điểm freelancer chấp nhận đề xuất trên Nova; cũng là lúc thỏa thuận được khóa. */
-  acceptedAt: number;
-  /** Chỉ có với doanh nghiệp khi server cấu hình NOVA_BUSINESS_WEB_URL và Nova gửi id cuộc trò chuyện. */
-  novaReturnUrl?: string;
-}
-
 export interface Conversation {
   id: string;
-  kind: "nova" | "replyn" | "group" | "channel";
+  /** direct: chat 1-1; replyn: hội thoại của một workspace dự án; group/channel: nhóm và kênh thông báo. */
+  kind: "direct" | "replyn" | "group" | "channel";
   title: string;
   subtitle: string;
   avatar: { initials: string; bg: string; fg: string };
@@ -244,8 +223,8 @@ export interface Conversation {
   pinned?: boolean;
   muted?: boolean;
   workspaceId?: string;
-  /** Hội thoại Nova (chỉ xem) đã dẫn tới workspace này. */
+  /** Chat trực tiếp: workspace dự án đã được mở từ cuộc trò chuyện này. */
   linkedWorkspaceChatId?: string;
-  /** Hội thoại Nova đã tạo ra workspace này, dùng để quay lại từ workspace. */
-  sourceNovaChatId?: string;
+  /** Workspace: cuộc trò chuyện trực tiếp đã mở ra workspace này, dùng để quay lại. */
+  sourceChatId?: string;
 }

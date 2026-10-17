@@ -5,7 +5,7 @@
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import type { DisputePack } from "./disputePack";
-import { C, PAGE, wrapText, type PdfFonts } from "./seal/pdf";
+import { C, PAGE, wrapText, type PdfFonts } from "./agreement/pdf";
 import type { ChangeOp } from "./types";
 
 export const PACK_ATTACHMENT = "ho-so-replyn.json";
@@ -179,11 +179,11 @@ export async function buildDisputePackPdf(pack: DisputePack, fonts: PdfFonts): P
   section("Thỏa thuận và các phiên bản", pack.agreement.changes.length);
   const o = pack.agreement.original;
   if (o) {
-    entry(when(o.acceptedAt), `Phiên bản 1 · chốt trên Nova · ${usd(o.totalAmount, o.currency)}`, o.scope);
+    entry(when(o.acceptedAt), `Thỏa thuận hai bên chốt trên Replyn · ${usd(o.totalAmount, o.currency)}`, o.scope);
     if (o.deliverables.length) lines(`Bàn giao: ${o.deliverables.join("; ")}`, M + 96, W - 96, 9.5, reg, C.ink2);
     if (o.startDate || o.deadline) lines(`Thời gian: ${o.startDate ?? "?"} đến ${o.deadline ?? "?"}`, M + 96, W - 96, 9.5, reg, C.ink2);
   } else {
-    empty("Thỏa thuận được hai bên xác nhận trên Replyn (không có bản gốc từ Nova).");
+    empty("Hai bên chưa xác nhận thỏa thuận.");
   }
   pack.agreement.changes.forEach((c) => {
     entry(when(c.at), `Đề xuất của ${c.proposedBy} · phiên bản ${c.fromVersion} → ${c.fromVersion + 1}`, `Lý do: “${c.reason}”`, STATUS[c.status]);

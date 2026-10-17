@@ -1,6 +1,10 @@
-import { handleSession, liveAuthDeps } from "@/lib/auth/server/novaBusinessAuth";
+import { accountFromRequest } from "@/lib/auth/session";
 
-/** Phiên Replyn hiện tại, đọc từ cookie đã ký. */
+/** Tài khoản đang đăng nhập, đọc từ cookie đã ký. */
 export function GET(request: Request) {
-  return handleSession(request, liveAuthDeps());
+  const account = accountFromRequest(request);
+  return new Response(JSON.stringify(account ? { account } : { account: null }), {
+    status: account ? 200 : 401,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
 }

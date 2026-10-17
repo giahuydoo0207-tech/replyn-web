@@ -9,16 +9,12 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "screens": "node scripts/screens.mjs",
-    "test:login": "node scripts/nova-login.mjs",
-    "test": "node --test \"tests/auth/*.test.mjs\" \"tests/workspace/*.test.mjs\" \"tests/seal/*.test.mjs\"",
-    "test:auth": "node --test \"tests/auth/*.test.mjs\"",
+    "test": "node --test \"tests/workspace/*.test.mjs\" \"tests/agreement/*.test.mjs\"",
     "test:workspace": "node --test \"tests/workspace/*.test.mjs\"",
-    "test:seal": "node --test \"tests/seal/*.test.mjs\""
+    "test:agreement": "node --test \"tests/agreement/*.test.mjs\""
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
-    "@solana-program/memo": "^0.14.1",
-    "@solana/kit": "^8.4.0",
     "lucide-react": "^1.49.0",
     "next": "16.3.8",
     "pdf-lib": "^1.17.1",
@@ -33,7 +29,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
-    "jsqr": "^1.4.0",
     "playwright-core": "^1.63.0",
     "tailwindcss": "^4",
     "typescript": "^5"

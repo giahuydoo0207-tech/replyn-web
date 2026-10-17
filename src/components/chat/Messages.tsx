@@ -4,7 +4,7 @@ import { AlarmClock, CheckCheck, Lock, Pin, PinOff, ShieldCheck, Undo2 } from "l
 import { Fragment, useState } from "react";
 import { dayKey, dayLabel, hhmm } from "@/lib/format";
 import { noticeText, previewOf } from "@/lib/preview";
-import { canPin, canRecall, findAttachment, keepsRecalled, initials, NOVA_TEAM_ID, SYSTEM_ID, type PanelTab } from "@/lib/reducer";
+import { canPin, canRecall, findAttachment, keepsRecalled, initials, TEAM_ID, SYSTEM_ID, type PanelTab } from "@/lib/reducer";
 import { jumpToMessage, useMe, useStore } from "@/lib/store";
 import type { Conversation, Message } from "@/lib/types";
 import { FilePreview } from "../FileCard";
@@ -14,7 +14,7 @@ import { Avatar, cx } from "../ui";
 
 const GROUP_GAP = 5 * 60 * 1000;
 const NOTICE_KINDS = ["system", "milestone", "payment", "dispute", "decision", "reminder"];
-const isNotice = (m: Message) => NOTICE_KINDS.includes(m.kind) || m.senderId === SYSTEM_ID || m.senderId === NOVA_TEAM_ID;
+const isNotice = (m: Message) => NOTICE_KINDS.includes(m.kind) || m.senderId === SYSTEM_ID || m.senderId === TEAM_ID;
 
 const LINK_LABEL: Record<PanelTab, string> = {
   archive: "Xem lưu trữ",
@@ -27,7 +27,7 @@ const LINK_LABEL: Record<PanelTab, string> = {
 
 export function MessageList({ conv, messages }: { conv: Conversation; messages: Message[] }) {
   const { state } = useStore();
-  const showAvatars = conv.kind !== "nova";
+  const showAvatars = conv.kind !== "direct";
   return (
     <div className="mx-auto flex w-full max-w-[880px] flex-col gap-[3px] px-3 pb-4 pt-3 sm:px-8">
       {messages.map((m, i) => {
@@ -258,7 +258,7 @@ function Body({ m, out }: { m: Message; out: boolean }) {
 
 function Notice({ m, flash, anchor = true }: { m: Message; flash: boolean; anchor?: boolean }) {
   const { state, dispatch } = useStore();
-  const nova = m.senderId === NOVA_TEAM_ID || m.kind === "decision";
+  const team = m.senderId === TEAM_ID || m.kind === "decision";
   const danger = m.kind === "dispute";
   const reminder = m.kind === "reminder";
   return (
@@ -278,7 +278,7 @@ function Notice({ m, flash, anchor = true }: { m: Message; flash: boolean; ancho
             className={cx("mr-1.5 inline-block align-[-2px]", m.tone === "danger" ? "text-danger" : m.tone === "warning" ? "text-amber" : "text-ink-2")}
             aria-label="Nhắc hạn"
           />
-        ) : nova ? (
+        ) : team ? (
           <ShieldCheck size={14} className="mr-1.5 inline-block align-[-2px] text-ink-2" />
         ) : danger ? (
           <span className="mr-1.5 inline-block size-1.5 rounded-full bg-danger align-[2px]" />

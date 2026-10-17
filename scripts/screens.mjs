@@ -7,11 +7,30 @@ mkdirSync("screenshots", { recursive: true });
 const browser = await chromium.launch({ channel: "chrome" });
 const errors = [];
 
-async function open(viewport) {
-  const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
+const PASSWORD = "replyn2026";
+
+async function login(page, email) {
+  await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Mật khẩu").fill(PASSWORD);
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await page.waitForURL(`${BASE}/`);
+  await page.waitForLoadState("networkidle");
+}
+
+async function logout(page) {
+  await page.getByRole("button", { name: "Demo", exact: true }).click();
+  await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
+  await page.waitForURL(/\/login$/);
+}
+
+/** Mỗi trang là một ngữ cảnh riêng (cookie + dữ liệu demo riêng). */
+async function open(viewport, email = "ha@moccoffee.vn") {
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  const page = await context.newPage();
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-  await page.goto(BASE, { waitUntil: "networkidle" });
+  await login(page, email);
   return page;
 }
 
@@ -64,9 +83,12 @@ try {
   await page.getByRole("button", { name: "Quay lại cuộc trò chuyện", exact: true }).first().click();
 
   const flow = await open({ width: 1600, height: 900 });
-  // Đề xuất được tạo và phản hồi trên Nova; Replyn chỉ mở workspace của thỏa thuận đã chấp nhận.
-  assert.equal(await flow.getByText(/Đề xuất Replyn/).count(), 0, "Replyn never offers to propose Replyn");
-  assert.equal(await flow.getByRole("button", { name: "Thêm", exact: true }).count(), 0, "Nova history is read-only in Replyn");
+  // Doanh nghiệp mở dự án ngay trong chat trực tiếp chưa có dự án.
+  await flow.getByRole("button", { name: /Đỗ Minh Quân/ }).first().click();
+  await flow.getByRole("button", { name: "Thêm", exact: true }).click();
+  assert.ok(await flow.getByRole("menuitem", { name: /Mở dự án/ }).count(), "Business can open a project from a direct chat");
+  await flow.keyboard.press("Escape");
+  await flow.getByRole("button", { name: /Lê Minh Khoa/ }).first().click();
   await flow.getByRole("button", { name: "Mở workspace", exact: true }).first().click();
   await flow.waitForTimeout(850);
   assert.equal(await flow.getByRole("button", { name: /Landing page Mộc Coffee/ }).count(), 0, "Linked workspace must not create a second chat-list item");
@@ -83,18 +105,22 @@ try {
   await flow.getByRole("navigation", { name: "Các mục dự án" }).getByRole("button", { name: /Tiến độ/ }).click();
   await flow.getByRole("button", { name: "Ký quỹ (mô phỏng)", exact: true }).first().click();
 
-  const switchRole = async (role) => {
-    await flow.getByRole("button", { name: "Demo", exact: true }).click();
-    await flow.getByRole("button", { name: new RegExp(`^${role}`) }).click();
-    await flow.mouse.click(1000, 70);
+  // Dữ liệu demo nằm trong trình duyệt: đăng nhập tài khoản bên kia trên cùng máy là thấy đúng dự án.
+  const switchTo = async (email, chat) => {
+    await flow.waitForTimeout(400);
+    await logout(flow);
+    await login(flow, email);
+    await flow.getByRole("button", { name: chat }).first().click();
   };
-  await switchRole("Freelancer");
-  await flow.getByRole("button", { name: "Quay lại cuộc trò chuyện", exact: true }).first().click();
+  await switchTo("khoa@replyn.dev", /Trần Thu Hà|Mộc Coffee/);
+  if (await flow.getByRole("button", { name: "Quay lại cuộc trò chuyện", exact: true }).count()) {
+    await flow.getByRole("button", { name: "Quay lại cuộc trò chuyện", exact: true }).first().click();
+  }
   await flow.getByRole("button", { name: "Thêm", exact: true }).click();
   await flow.getByRole("menuitem", { name: /Nộp sản phẩm/ }).click();
   await flow.getByRole("button", { name: "Dùng file mẫu", exact: true }).click();
   await flow.getByRole("button", { name: /Nộp cho nghiệm thu/ }).click();
-  await switchRole("Business");
+  await switchTo("ha@moccoffee.vn", /Lê Minh Khoa/);
   const reviewMenu = await openOptions(flow);
   await reviewMenu.getByRole("menuitem", { name: /Theo dõi tiến độ/ }).click();
   await flow.getByRole("button", { name: "Nghiệm thu", exact: true }).first().click();
@@ -119,7 +145,7 @@ try {
   assert.ok(await mobile.getByRole("region", { name: /Trò chuyện:/ }).isVisible());
 
   assert.deepEqual(errors, [], "Browser console errors");
-  console.log("PASS: global rail, contextual project tools, in-chat tabs, payout flow, mobile, no console errors.");
+  console.log("PASS: login, open project, global rail, contextual project tools, in-chat tabs, payout flow, mobile, no console errors.");
 } finally {
   await browser.close();
 }
